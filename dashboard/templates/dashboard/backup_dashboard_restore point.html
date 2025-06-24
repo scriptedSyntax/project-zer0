@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>THE GENESIS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+</head>
+<body class="container py-4">
+
+<!-- Header with pumpkin and branding -->
+<div class="text-center mb-5 relative">
+    <div class="flex justify-center items-center gap-4 mb-2">
+        <i class="bi bi-currency-dollar text-emerald-400 text-4xl animate-bounce hover:text-emerald-300 transition-all"></i>
+        <div class="relative group">
+            <i class="bi bi-emoji-sunglasses text-5xl text-orange-500 animate-pulse group-hover:text-yellow-400 transition-all"></i>
+            <i class="bi bi-emoji-dizzy absolute -top-1 -right-1 text-xs text-red-500 group-hover:animate-spin"></i>
+            <div class="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-orange-500 to-transparent opacity-70 group-hover:opacity-100 transition-all"></div>
+        </div>
+        <i class="bi bi-cash-stack text-emerald-400 text-4xl animate-bounce hover:text-emerald-300 transition-all"></i>
+    </div>
+    <h1 class="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-orange-600 mb-2">
+        THE<span class="text-green-500"> GENESIS</span>
+    </h1>
+    <div class="flex justify-center gap-2">
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger flex items-center gap-1">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Balance Update -->
+<div class="mb-5">
+    <div class="p-4 rounded-xl shadow-lg bg-gradient-to-r from-gray-800 to-gray-900 border border-gray-700">
+        <div class="flex justify-between items-center">
+            <div>
+                <p class="text-gray-400 text-xs uppercase tracking-widest mb-1">CURRENT BALANCE</p>
+                <h3 id="balance-display" class="text-3xl font-bold text-green-400">
+                    {{ balance|default:"N/A" }} 
+                    <small class="text-gray-400">{{ currency }}</small>
+                </h3>
+            </div>
+            <span class="badge rounded-full bg-green-500 animate-pulse px-3 py-1 text-xs">
+                <i class="bi bi-lightning-charge-fill mr-1"></i> LIVE
+            </span>
+        </div>
+    </div>
+    <p class="text-gray-500 text-center mt-2 text-sm">© 2025 <span class="text-orange-500">🎃 xHacks</span></p>
+</div>
+
+<!-- Bot Control 🎃 -->
+<div class="mb-5 bg-gray-800 rounded-xl p-4 border border-gray-700">
+  <h2 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
+    <i class="bi bi-robot text-blue-400"></i> Bot Control 🎃
+  </h2>
+
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+    <div>
+      <span class="text-gray-400">Status:</span>
+      <span id="bot-status" class="{{ bot_status_class }} font-mono">
+        {{ bot_status_text }}
+      </span>
+    </div>
+    <div class="flex gap-2">
+      <button id="start-bot-btn" class="btn btn-success flex items-center gap-1">
+        <i class="bi bi-play-fill"></i> Start
+      </button>
+      <button id="stop-bot-btn" class="btn btn-danger flex items-center gap-1">
+        <i class="bi bi-stop-fill"></i> Stop
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="flex justify-between items-center bg-gray-900 text-gray-200 p-3 rounded mb-3">
+    <div>
+      <span class="text-gray-400">Profit:</span>
+      <span id="bot-profit" class="font-mono">$0.00</span>
+    </div>
+    <div>
+      <span class="text-gray-400">W/L:</span>
+      <span id="bot-wins" class="text-green-400 font-mono">0</span>
+      <span class="text-gray-400 mx-1">|</span>
+      <span id="bot-losses" class="text-red-400 font-mono">0</span>
+    </div>
+  </div>
+
+  <!-- Bot Log -->
+  <div id="bot-log" class="h-64 overflow-y-auto bg-gray-900 text-gray-200 p-3 space-y-2 rounded">
+    <!-- messages will be appended here -->
+  </div>
+</div>
+
+
+<!-- Bot Settings -->
+<div class="col-md-6 mb-4">
+  <div class="card shadow-sm bg-gray-900 text-white border border-gray-700">
+    <div class="card-body">
+      <h5 class="text-xl font-semibold mb-4 flex items-center">
+        <i class="bi bi-gear-fill text-info me-2"></i> Bot Settings
+      </h5>
+      <form method="post" id="settings-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_settings">
+
+        <!-- Stake -->
+        <div class="mb-3">
+          {{ settings_form.stake.label_tag }}
+          {{ settings_form.stake }}
+        </div>
+
+        <!-- Martingale -->
+        <div class="mb-3">
+          {{ settings_form.martingale.label_tag }}
+          {{ settings_form.martingale }}
+        </div>
+
+        <!-- Take Profit -->
+        <div class="mb-3">
+          {{ settings_form.take_profit.label_tag }}
+          {{ settings_form.take_profit }}
+        </div>
+
+        <!-- Stop Loss -->
+        <div class="mb-3">
+          {{ settings_form.stop_loss.label_tag }}
+          {{ settings_form.stop_loss }}
+        </div>
+
+        <!-- Martingale After -->
+        <div class="mb-3">
+          {{ settings_form.do_martingale_after.label_tag }}
+          {{ settings_form.do_martingale_after }}
+        </div>
+
+        <!-- Prediction -->
+        <div class="mb-3">
+          <label for="prediction" class="form-label text-gray-300">
+            <i class="bi bi-shuffle me-1 text-warning"></i> Prediction:
+          </label>
+          <select id="prediction" name="prediction"
+            class="form-control bg-gray-800 text-white border-gray-700 dark:bg-gray-800 dark:text-white">
+            <option class="bg-white text-black" value="DIGITEVEN" {% if settings_form.instance.prediction == 'DIGITEVEN' %}selected{% endif %}>Even</option>
+            <option class="bg-white text-black" value="DIGITODD" {% if settings_form.instance.prediction == 'DIGITODD' %}selected{% endif %}>Odd</option>
+          </select>
+        </div>
+
+        <!-- Ticks -->
+        <div class="mb-3">
+          {{ settings_form.ticks.label_tag }}
+          {{ settings_form.ticks }}
+        </div>
+
+        <!-- Loss Counter -->
+        <div class="mb-3">
+          {{ settings_form.loss_counter.label_tag }}
+          {{ settings_form.loss_counter }}
+        </div>
+
+        <!-- Symbol Select -->
+        <div class="mb-3">
+          <label for="symbol-select" class="form-label text-gray-300">
+            <i class="bi bi-diagram-3-fill me-1 text-primary"></i> Symbol:
+          </label>
+          <select id="symbol-select" name="symbol"
+            class="form-control bg-gray-800 text-white border-gray-700 dark:bg-gray-800 dark:text-white">
+            <optgroup label="Volatility Indices" class="bg-white text-black">
+              <option value="R_100" {% if settings_form.instance.symbol == "R_100" %}selected{% endif %}>Volatility 100 Index</option>
+              <option value="1HZ100V" {% if settings_form.instance.symbol == "1HZ100V" %}selected{% endif %}>Volatility 100 (1s) Index</option>
+              <option value="1HZ10V" {% if settings_form.instance.symbol == "1HZ10V" %}selected{% endif %}>Volatility 10 (1s) Index</option>
+              <option value="R_10" {% if settings_form.instance.symbol == "R_10" %}selected{% endif %}>Volatility 10 Index</option>
+              <option value="R_50" {% if settings_form.instance.symbol == "R_50" %}selected{% endif %}>Volatility 50 Index</option>
+              <option value="1HZ25V" {% if settings_form.instance.symbol == "1HZ25V" %}selected{% endif %}>Volatility 25 (1s) Index</option>
+              <option value="1HZ75V" {% if settings_form.instance.symbol == "1HZ75V" %}selected{% endif %}>Volatility 75 (1s) Index</option>
+              <option value="R_25" {% if settings_form.instance.symbol == "R_25" %}selected{% endif %}>Volatility 25 Index</option>
+              <option value="R_75" {% if settings_form.instance.symbol == "R_75" %}selected{% endif %}>Volatility 75 Index</option>
+              <option value="1HZ50V" {% if settings_form.instance.symbol == "1HZ50V" %}selected{% endif %}>Volatility 50 (1s) Index</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Submit Button -->
+        <button class="btn btn-info w-100 mt-3" type="submit">
+          <i class="bi bi-save-fill me-1"></i> Update Settings
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Optional fallback CSS -->
+<style>
+  select option {
+    background-color: #ffffff;
+    color: #000000;
+  }
+</style>
+
+<!-- Optional: Inline style tweaks or place in your stylesheet -->
+<style>
+    #even-percentage {
+        color: #198754; /* Bootstrap green */
+        font-weight: 600;
+    }
+
+    #odd-percentage {
+        color: #dc3545; /* Bootstrap red */
+        font-weight: 600;
+    }
+
+    #analysis-feed {
+        background-color: #f8f9fa; /* Light gray */
+        color: #212529; /* Dark text */
+    }
+
+    #weight-result {
+        color: #0d6efd; /* Bootstrap primary blue */
+        font-weight: bold;
+    }
+</style>
+
+<!-- Analysis Section -->
+<div class="mb-4">
+    <h3>Real-time Even/Odd Analysis</h3>
+
+    <div class="mb-2">
+        <label for="analysis-symbol-select">Select Symbol:</label>
+        <select id="analysis-symbol-select" class="form-control">
+            <optgroup label="Volatility Indices">
+                <option value="R_100">Volatility 100 Index</option>
+                <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                <option value="1HZ10V">Volatility 10 (1s) Index</option>
+                <option value="R_10">Volatility 10 Index</option>
+                <option value="R_50">Volatility 50 Index</option>
+                <option value="1HZ25V">Volatility 25 (1s) Index</option>
+                <option value="1HZ75V">Volatility 75 (1s) Index</option>
+                <option value="R_25">Volatility 25 Index</option>
+                <option value="R_75">Volatility 75 Index</option>
+                <option value="1HZ50V">Volatility 50 (1s) Index</option>
+            </optgroup>
+        </select>
+    </div>
+    <div class="mb-2">
+        <label for="last-x-ticks" class="form-label">Number of last X ticks:</label>
+        <input type="number" id="last-x-ticks" class="form-control" value="120" min="10" max="500" step="10">
+    </div>
+
+    <div class="mb-3">
+        <button id="start-analysis-btn" class="btn btn-success me-2">Start Analysis</button>
+        <button id="stop-analysis-btn" class="btn btn-danger" disabled>Stop Analysis</button>
+    </div>
+
+    <div id="analysis-feed" class="mt-3 p-3 border rounded">
+        <p class="text-muted mb-0">Analysis output will appear here...</p>
+    </div>
+
+    <div id="weight-display" class="mt-2">
+        <span id="even-percentage">Even: --%</span> |
+        <span id="odd-percentage">Odd: --%</span>
+    </div>
+
+    <canvas id="evenOddChart" height="400" class="mt-4 w-100"></canvas>
+
+    <div id="weight-analysis" class="mt-3 text-center">
+        <h5>Weight Analysis</h5>
+        <p id="weight-result">Awaiting data...</p>
+    </div>
+</div>
+
+<!-- Update API Token -->
+<div class="col-md-6 mb-4">
+    <div class="card shadow-sm bg-gray-900 text-white border-0">
+        <div class="card-body">
+            <h5 class="text-white">Update API Token</h5>
+            <form id="token-form" method="post" class="mb-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_token">
+
+                <label for="id_deriv_token" class="form-label text-gray-300">Deriv API Token:</label>
+                {{ profile_form.deriv_token }}
+
+                <button type="submit" class="btn btn-primary mt-2">Save Token</button>
+            </form>
+
+            <div id="token-success" class="alert alert-success d-none bg-green-600 text-white border-0">
+                Token updated!
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<style>
+    .text-gradient {
+        background: linear-gradient(90deg, #3b82f6, #10b981);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .status-running { color: green; font-weight: bold; }
+    .status-stopped { color: red; font-weight: bold; }
+    #bot-stats {
+        font-family: monospace;
+    }
+    #trade-history {
+        height: 300px;
+        overflow-y: auto;
+        font-family: monospace;
+        background: #f9f9f9;
+    }
+#analysis-feed {
+    height: 300px;
+    overflow-y: auto;
+}
+</style>
+
+<!--
+    Bot WebSocket and Analysis Script
+    This script manages multiple WebSocket connections to interact with the bot system, 
+    handle analysis of last digits, update the bot's status, balance, and chart data, 
+    and process AJAX form submissions. It is designed to work with a bot running on the 
+    server and allows for real-time updates on bot activities, including analysis of 
+    even and odd digit counts.
+-->
+<script>
+    let ws, analysisSocket = null; // Declare WebSocket variables
+
+    // Function to connect to the bot WebSocket server
+    function connectWebSocket() {
+        ws = new WebSocket("ws://" + window.location.host + "/wss/analysis/"); // Open connection to the server's analysis WebSocket
+        ws.onopen = () => {
+            console.log("Bot WebSocket connected");
+            sendBotStatusCheck(); // ✅ Only check bot status now
+        };
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data); // Parse incoming data
+                // Update bot status and balance when received
+                if (data.bot_running !== undefined) updateBotStatusUI(data.bot_running);
+                if (data.type === "balance_update") updateBalanceUI(data.balance, data.currency);
+            } catch (err) {
+                console.error("Bot WS JSON parse error:", event.data);
+            }
+        };
+        ws.onerror = (e) => console.error("Bot WebSocket error:", e);
+        ws.onclose = () => {
+            console.warn("Bot WebSocket closed, retrying...");
+            setTimeout(connectWebSocket, 2000); // Retry connection after 2 seconds
+        };
+    }
+
+    // Function to start the bot by sending a "start_bot" command
+    function startBot() {
+        ws.send(JSON.stringify({ command: "start_bot" }));
+    }
+
+    // Function to stop the bot by sending a "stop_bot" command
+    function stopBot() {
+        ws.send(JSON.stringify({ command: "stop_bot" }));
+    }
+
+    // Function to check the bot's status
+    function sendBotStatusCheck() {
+        ws.send(JSON.stringify({ command: "bot_status" }));
+    }
+
+    // Function to update the bot status in the UI (Running or Stopped)
+    function updateBotStatusUI(isRunning) {
+        const elem = document.getElementById("bot-status");
+        elem.textContent = isRunning ? "Running" : "Stopped";
+        elem.className = isRunning ? "status-running" : "status-stopped";
+    }
+
+    // Function to update balance information in the UI
+    function updateBalanceUI(balance, currency) {
+        const balanceElem = document.getElementById("balance-display");
+        if (balanceElem) {
+            balanceElem.innerHTML = `${balance} <small class="text-muted">${currency}</small>`;
+            balanceElem.classList.add("pulse");
+            setTimeout(() => balanceElem.classList.remove("pulse"), 500); // Animate balance update
+        }
+    }
+
+    // Function to handle AJAX form submissions
+    function handleAjaxForm(formId, successMsg) {
+        const form = document.getElementById(formId);
+        form.addEventListener("submit", function (e) {
+            e.preventDefault(); // Prevent the default form submission
+            const data = new FormData(form); // Prepare form data
+            fetch(window.location.href, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": data.get("csrfmiddlewaretoken"), // Include CSRF token for security
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                body: data // Send form data to the server
+            })
+            .then(async resp => {
+                const contentType = resp.headers.get("Content-Type");
+                if (contentType && contentType.includes("application/json")) {
+                    const json = await resp.json();
+                    alert(json.message || successMsg); // Show success or error message
+                } else {
+                    const text = await resp.text();
+                    alert("Server did not return valid JSON:\n\n" + text); // Handle non-JSON responses
+                }
+            })
+            .catch(err => {
+                console.error("AJAX error:", err);
+                alert("AJAX error: " + err.message); // Show AJAX error message
+            });
+        });
+    }
+
+    // Initialize AJAX forms for token and settings updates
+    handleAjaxForm("token-form", "Token updated!");
+    handleAjaxForm("settings-form", "Settings updated!");
+
+    // DOM elements for analysis control
+    const analysisFeed = document.getElementById("analysis-feed");
+    const startBtn = document.getElementById("start-analysis-btn");
+    const stopBtn = document.getElementById("stop-analysis-btn");
+    const symbolSelect = document.getElementById("analysis-symbol-select");
+    const lastXTicks = document.getElementById("last-x-ticks");
+
+    // Chart setup for tracking even and odd last digits
+    const evenOddChart = new Chart(document.getElementById('evenOddChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Even', 'Odd'],
+            datasets: [{
+                label: 'Last Digit Count',
+                data: [0, 0],
+                backgroundColor: ['#3b82f6', '#ef4444']
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    // Function to start the analysis WebSocket connection
+    function startAnalysisSocket(symbol, tickCount) {
+        analysisSocket = new WebSocket("ws://" + window.location.host + "/wss/analysis/");
+        window.digitBuffer = [];  // Clear buffer on new analysis start
+        analysisSocket.onopen = () => {
+            analysisSocket.send(JSON.stringify({
+                command: "start_analysis",
+                symbol: symbol,
+                last_x_ticks: parseInt(tickCount)
+            }));
+            analysisFeed.innerHTML = "<p class='text-muted'>Analysis started...</p>";
+            startBtn.disabled = true; // Disable start button
+            stopBtn.disabled = false; // Enable stop button
+        };
+
+        // Handle incoming analysis data
+        analysisSocket.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                if (data.type === 'analysis_update') {
+                    appendToFeed(`Tick: ${data.tick.quote} | Time: ${data.tick.epoch} | Last Digit: ${data.last_digit}`);
+
+                    const lastDigit = parseInt(data.last_digit);
+                    if (!isNaN(lastDigit)) {
+                        if (!window.digitBuffer) window.digitBuffer = [];
+                        window.digitBuffer.push(lastDigit);
+
+                        const maxLength = parseInt(lastXTicks.value) || 100;
+                        if (window.digitBuffer.length > maxLength) {
+                            window.digitBuffer = window.digitBuffer.slice(-maxLength); // Limit buffer size
+                        }
+
+                        // Update the chart with even/odd counts
+                        const even = window.digitBuffer.filter(d => d % 2 === 0).length;
+                        const odd = window.digitBuffer.length - even;
+                        const newCounts = { even, odd };
+                        updateEvenOddChart(newCounts); // Update the chart
+                        updateDigitWeights(newCounts); // Update the UI with new digit weights
+                    }
+                }
+                else if (data.error) appendToFeed("Error: " + data.error);
+            } catch (err) {
+                console.error("Analysis WS JSON parse error:", e.data);
+            }
+        };
+
+        // Handle WebSocket closure
+        analysisSocket.onclose = () => {
+            appendToFeed("WebSocket closed");
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+
+        analysisSocket.onerror = (e) => console.error("Analysis WebSocket error:", e);
+    }
+
+    // Button handlers for starting and stopping analysis
+    startBtn.onclick = () => {
+        const symbol = symbolSelect.value;
+        const tickCount = lastXTicks.value;
+        localStorage.setItem("symbol-select", symbol);
+        localStorage.setItem("last-x-ticks", tickCount);
+        startAnalysisSocket(symbol, tickCount);
+    };
+
+    stopBtn.onclick = () => {
+        if (analysisSocket) {
+            analysisSocket.send(JSON.stringify({ command: "stop_analysis" }));
+            analysisSocket.close(); // Close the analysis socket
+        }
+    };
+
+    // Function to append messages to the analysis feed
+    function appendToFeed(msg) {
+        const p = document.createElement("p");
+        p.innerHTML = msg;
+        analysisFeed.appendChild(p);
+        analysisFeed.scrollTop = analysisFeed.scrollHeight; // Scroll to the bottom of the feed
+    }
+
+    // Function to update the even/odd chart with new data
+    function updateEvenOddChart(counts) {
+        const even = counts.even || 0;
+        const odd = counts.odd || 0;
+        evenOddChart.data.datasets[0].data = [even, odd];
+        evenOddChart.update(); // Refresh the chart
+
+        const total = even + odd;
+        const resultEl = document.getElementById("weight-result");
+
+        if (total > 0) {
+            const evenPct = ((even / total) * 100).toFixed(2);
+            const oddPct = ((odd / total) * 100).toFixed(2);
+            resultEl.textContent =
+                even > odd ? `Even digits dominate with ${evenPct}%` :
+                odd > even ? `Odd digits dominate with ${oddPct}%` :
+                "Even and Odd are perfectly balanced.";
+        } else {
+            resultEl.textContent = "Insufficient data to calculate.";
+        }
+    }
+
+    // Function to update the digit weights (even/odd percentage)
+    function updateDigitWeights(digitCounts) {
+        const even = digitCounts.even;
+        const odd = digitCounts.odd;
+        const total = even + odd;
+
+        const evenPercent = total > 0 ? ((even / total) * 100).toFixed(1) : 0;
+        const oddPercent = total > 0 ? ((odd / total) * 100).toFixed(1) : 0;
+
+        document.getElementById("even-percentage").innerText = `Even: ${evenPercent}%`;
+        document.getElementById("odd-percentage").innerText = `Odd: ${oddPercent}%`;
+    }
+
+    // Initialize the WebSocket connections when the page loads
+    window.onload = () => {
+        connectWebSocket(); // Connect to the analysis WebSocket
+        connectBotSocket(); // Connect to the bot WebSocket
+        const storedSymbol = localStorage.getItem("symbol-select") || "R_100"; // Load previously selected symbol
+        const storedTicks = localStorage.getItem("last-x-ticks") || "100"; // Load previously selected tick count
+        symbolSelect.value = storedSymbol;
+        lastXTicks.value = storedTicks;
+        startAnalysisSocket(storedSymbol, storedTicks); // Start analysis with stored values
+    };
+</script>
+
+<!--
+    Bot WebSocket Script
+    This script manages the connection between the webpage and the bot WebSocket server.
+    It handles real-time updates for trade history, bot status, and balance updates.
+-->
+<script>
+    // Get the trade history container element
+    const tradeBox = document.getElementById("trade-history");
+    tradeBox.innerHTML = ""; // Clear old entries before new data is displayed
+
+    let botSocket = null; // Initialize the WebSocket variable
+    let totalProfit = 0;
+    let totalWins = 0;
+    let totalLosses = 0;
+
+    // Function to connect to the bot WebSocket server
+    function connectBotSocket() {
+        // Use the appropriate protocol based on the current page's protocol (ws or wss)
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        botSocket = new WebSocket(`${protocol}://${window.location.host}/wss/bot/`);
+        // botsSocket = new WebSocket(`${protocol}://${window.location.host}/wss/analysis/`);
+
+
+        // Handle WebSocket connection open event
+        botSocket.onopen = () => {
+            console.log("✅ Bot WebSocket connected.");
+            checkBotStatus(); // Check bot's status after connection
+        };
+
+        // Handle WebSocket incoming message event
+        botSocket.onmessage = (e) => {
+            const data = JSON.parse(e.data); // Parse incoming JSON data
+
+            // if (data.type === "bot_update") {
+            //     const update = data.data;
+            //     const entry = document.createElement("div");
+            //     entry.className = `mb-2 p-2 rounded text-white`;
+            //     entry.style.backgroundColor = update.profit >= 0 ? '#28a745' : '#dc3545'; // Green for win, red for loss
+
+            //     const profitFormatted = update.profit >= 0
+            //         ? `+$${update.profit.toFixed(2)}`
+            //         : `-$${Math.abs(update.profit).toFixed(2)}`;
+
+            //     entry.textContent = `[${update.timestamp}] ${update.contract_type} - ${update.result.toUpperCase()} - $${update.stake.toFixed(2)} (${profitFormatted})`;
+
+            //     // Remove "Waiting for trades..." if it exists
+            //     const waitingMsg = tradeBox.querySelector(".text-muted");
+            //     if (waitingMsg) waitingMsg.remove();
+
+            //     tradeBox.prepend(entry);
+            // }
+
+            if (data.type === "bot_update") {
+                const update = data.data;
+
+                // Update cumulative stats
+                totalProfit += update.profit;
+                if (update.profit >= 0) {
+                    totalWins += 1;
+                } else {
+                    totalLosses += 1;
+                }
+
+                // Update stats UI
+                document.getElementById("total-profit").textContent =
+                    `${totalProfit >= 0 ? '+' : '-'}$${Math.abs(totalProfit).toFixed(2)}`;
+                document.getElementById("total-profit").style.color =
+                    totalProfit >= 0 ? '#28a745' : '#dc3545';
+
+                document.getElementById("total-wins").textContent = totalWins;
+                document.getElementById("total-losses").textContent = totalLosses;
+
+                // Create the trade entry
+                const entry = document.createElement("div");
+                entry.className = `mb-2 p-2 rounded text-white`;
+                entry.style.backgroundColor = update.profit >= 0 ? '#28a745' : '#dc3545';
+
+                const profitFormatted = update.profit >= 0
+                    ? `+$${update.profit.toFixed(2)}`
+                    : `-$${Math.abs(update.profit).toFixed(2)}`;
+
+                entry.textContent = `[${update.timestamp}] ${update.contract_type} - ${update.result.toUpperCase()} - $${update.stake.toFixed(2)} (${profitFormatted})`;
+
+                const waitingMsg = tradeBox.querySelector(".text-muted");
+                if (waitingMsg) waitingMsg.remove();
+
+                tradeBox.prepend(entry);
+            }
+
+            // If the message contains bot status info
+            if (data.bot_running !== undefined) {
+                updateBotStatusUI(data.bot_running); // Update UI with bot status (running/stopped)
+            }
+
+            // If the message contains a balance update
+            if (data.type === "balance_update") {
+                updateBalanceUI(data.balance, data.currency); // Update UI with balance information
+            }
+        };
+
+        // Handle WebSocket connection close event
+        botSocket.onclose = () => {
+            console.warn("❌ Bot WebSocket closed. Reconnecting...");
+            setTimeout(connectBotSocket, 2000); // Attempt to reconnect after 2 seconds
+        };
+
+        // Handle WebSocket error event
+        botSocket.onerror = (e) => {
+            console.error("Bot WebSocket error:", e); // Log any errors
+        };
+    }
+
+    // Function to start the bot by sending a "start_bot" command through WebSocket
+    function startBot() {
+        if (botSocket && botSocket.readyState === WebSocket.OPEN) {
+            botSocket.send(JSON.stringify({ command: "start_bot" }));
+        }
+    }
+
+    // Function to stop the bot by sending a "stop_bot" command through WebSocket
+    function stopBot() {
+        if (botSocket && botSocket.readyState === WebSocket.OPEN) {
+            botSocket.send(JSON.stringify({ command: "stop_bot" }));
+        }
+    }
+
+    // Function to check the current status of the bot by sending a "bot_status" command
+    function checkBotStatus() {
+        if (botSocket && botSocket.readyState === WebSocket.OPEN) {
+            botSocket.send(JSON.stringify({ command: "bot_status" }));
+        }
+    }
+
+    // Function to update the bot status on the UI (Running or Stopped)
+    function updateBotStatusUI(isRunning) {
+        const elem = document.getElementById("bot-status");
+        elem.textContent = isRunning ? "Running" : "Stopped"; // Change text based on bot status
+        elem.className = isRunning ? "status-running" : "status-stopped"; // Apply corresponding CSS class
+    }
+</script>
+
+<!-- Script for handling bot start/stop actions via WebSocket -->
+<script>
+    (function() {
+    const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://')
+        + location.host + '/wss/bot/';
+    console.log('🌐 Connecting Bot WebSocket to', WS_URL);
+    const botSocket = new WebSocket(WS_URL);
+
+    // Summary state
+    let totalProfit = 0, winCount = 0, lossCount = 0;
+
+    // DOM refs
+    const logEl     = document.getElementById('bot-log');
+    const profitEl  = document.getElementById('bot-profit');
+    const winsEl    = document.getElementById('bot-wins');
+    const lossesEl  = document.getElementById('bot-losses');
+    const statusEl  = document.getElementById('bot-status');
+
+    // Helpers
+    const fmtCurrency = n => '$' + n.toFixed(2);
+    function clearState() {
+        totalProfit = 0; winCount = 0; lossCount = 0;
+        profitEl.textContent = fmtCurrency(0);
+        winsEl.textContent = '0';
+        lossesEl.textContent = '0';
+        logEl.innerHTML = '';
+    }
+    function appendHTML(html) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        logEl.appendChild(wrapper);
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // WebSocket events
+    botSocket.addEventListener('open', () => {
+        appendHTML(`<span class="text-blue-300">🔌 Connected to Bot socket</span>`);
+    });
+
+    botSocket.addEventListener('message', (evt) => {
+        let msg;
+        try { msg = JSON.parse(evt.data); }
+        catch {
+        appendHTML(`<span class="text-yellow-300">⚠️ ${evt.data}</span>`);
+        return;
+        }
+
+        // 1) raw message lines
+        if (msg.message) {
+        appendHTML(`<span class="text-gray-400">${msg.message}</span>`);
+        if (msg.message.includes('Bot started')) {
+            // clear and reset on every start
+            clearState();
+            statusEl.textContent = 'Running';
+            statusEl.className = 'text-green-400 font-mono';
+        }
+        if (msg.message.includes('Bot stopped')) {
+            statusEl.textContent = 'Stopped';
+            statusEl.className = 'text-red-400 font-mono';
+        }
+        return;
+        }
+
+        // 2) tick — we can omit or keep minimal
+        if (msg.type === 'tick') {
+        appendHTML(`<span class="text-gray-500">⏱ Tick</span>`);
+        return;
+        }
+
+        // 3) trade update card
+        if (msg.type === 'bot_update') {
+        const { contract_id, stake, profit, result } = msg.data;
+        totalProfit += profit;
+        profitEl.textContent = fmtCurrency(totalProfit);
+
+        if (result === 'win') winCount++;
+        else lossCount++;
+        winsEl.textContent = winCount;
+        lossesEl.textContent = lossCount;
+
+        const color = result === 'win' ? 'border-green-600' : 'border-red-600';
+        const emoji = result === 'win' ? '✅' : '❌';
+        const profitLabel = fmtCurrency(profit);
+        appendHTML(`
+            <div class="p-2 border-l-4 ${color} bg-gray-800 rounded">
+            <div class="font-mono text-sm">${emoji} Contract: <span class="text-blue-300">${contract_id}</span></div>
+            <div class="text-gray-300 text-sm">Stake: ${stake}, P/L: <span class="${result==='win'?'text-green-400':'text-red-400'}">${profitLabel}</span></div>
+            </div>
+        `);
+        return;
+        }
+
+        // fallback
+        appendHTML(`<span class="text-yellow-300">ℹ️ ${evt.data}</span>`);
+    });
+
+    botSocket.addEventListener('close', () => {
+        appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot socket</span>`);
+        statusEl.textContent = 'Disconnected';
+        statusEl.className = 'text-red-500 font-mono';
+    });
+
+    botSocket.addEventListener('error', (err) => {
+        appendHTML(`<span class="text-red-500">❌ Socket error</span>`);
+        console.error(err);
+    });
+
+    // Button handlers
+    document.getElementById('start-bot-btn')
+        .addEventListener('click', () => botSocket.readyState===1 && botSocket.send(JSON.stringify({command:'start_bot'})));
+    document.getElementById('stop-bot-btn')
+        .addEventListener('click', () => botSocket.readyState===1 && botSocket.send(JSON.stringify({command:'stop_bot'})));
+    })();
+</script>
+
+
+<footer class="text-center mt-5 mb-10">
+    <p class="text-gray-600 hover:text-orange-400 transition-all">
+        © 2025 <span class="text-orange-500 font-mono">THE GENESIS v3</span>
+    </p>
+    <div class="mt-2 flex justify-center gap-3">
+        <i class="bi bi-currency-bitcoin text-yellow-500 text-xl animate-pulse"></i>
+        <i class="bi bi-gem text-blue-400 text-xl animate-pulse"></i>
+        <i class="bi bi-cash-coin text-green-400 text-xl animate-pulse"></i>
+    </div>
+</footer>
+</body>
+</html>
