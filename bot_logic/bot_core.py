@@ -60,14 +60,14 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
 
         await send_update_callback({"type": "tick", "epoch": tick.get("epoch")})
         
-        stake = state.get_next_priority_stake(bot_settings.stake)
-        await asyncio.sleep(SAFETY_MARGIN)
-        
         # stake = state.get_next_priority_stake(bot_settings.stake)
+        # await asyncio.sleep(SAFETY_MARGIN)
+        
+        stake = state.get_next_priority_stake(bot_settings.stake)
         proposal = await trade_manager.propose_contract(
             bot_settings.symbol, stake, bot_settings.prediction
         )
-        # await asyncio.sleep(SAFETY_MARGIN)
+        await asyncio.sleep(SAFETY_MARGIN)
         buy_info = await trade_manager.buy_contract(proposal["proposal_id"], proposal["ask_price"])
         buy_time = buy_info["timestamp"]
 
