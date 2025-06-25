@@ -12,7 +12,7 @@ from bot_logic.state_manager import user_bot_states, BotState
 from bot_logic.trade_manager import TradeManager
 
 logger = logging.getLogger(__name__)
-SAFETY_MARGIN = 0.03  # seconds into each tick to fire the buy
+SAFETY_MARGIN = 0.05  # seconds into each tick to fire the buy
 
 
 async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callback, bot_mode=None):
