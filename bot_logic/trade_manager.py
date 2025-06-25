@@ -130,6 +130,7 @@ class DerivAPI:
                     if "error" in resp:
                         raise Exception(f"Deriv proposal error: {resp['error']['message']}")
                     p = resp["proposal"]
+                    print("[DEBUG] Proposal response:", resp)
                     return {"proposal_id": p["id"], "ask_price": p["ask_price"]}
 
 
