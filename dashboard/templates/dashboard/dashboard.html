@@ -335,7 +335,9 @@
 
     // Function to connect to the bot WebSocket server
     function connectWebSocket() {
-        ws = new WebSocket("ws://" + window.location.host + "/wss/analysis/"); // Open connection to the server's analysis WebSocket
+        // ws = new WebSocket("ws://" + window.location.host + "/wss/analysis/"); // Open connection to the server's analysis WebSocket
+        const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+        ws = new WebSocket(protocol + window.location.host + "/wss/analysis/");
         ws.onopen = () => {
             console.log("Bot WebSocket connected");
             sendBotStatusCheck(); // ✅ Only check bot status now
@@ -379,14 +381,21 @@
         elem.className = isRunning ? "status-running" : "status-stopped";
     }
 
-    // Function to update balance information in the UI
+    // ✅ Function to update balance information in the UI (with fallback and null-check)
     function updateBalanceUI(balance, currency) {
         const balanceElem = document.getElementById("balance-display");
-        if (balanceElem) {
-            balanceElem.innerHTML = `${balance} <small class="text-muted">${currency}</small>`;
-            balanceElem.classList.add("pulse");
-            setTimeout(() => balanceElem.classList.remove("pulse"), 500); // Animate balance update
+        if (!balanceElem) {
+            console.warn("⚠️ balance-display element not found.");
+            return;
         }
+    
+        const safeBalance = typeof balance === "number" ? balance.toFixed(2) : balance || "0.00";
+        const safeCurrency = currency || "";
+    
+        balanceElem.innerHTML = `${safeBalance} <small class="text-muted">${safeCurrency}</small>`;
+        balanceElem.classList.add("pulse");
+    
+        setTimeout(() => balanceElem.classList.remove("pulse"), 500); // Animate balance update
     }
 
     // Function to handle AJAX form submissions
