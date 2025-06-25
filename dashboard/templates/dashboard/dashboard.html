@@ -719,8 +719,9 @@
     const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://')
         + location.host + '/wss/bot/';
     console.log('🌐 Connecting ', WS_URL);
-    // const botSocket = new WebSocket(WS_URL);
-    botSocket = new WebSocket(WS_URL); // Use the global one already declared earlier
+    // const boket(WS_URL);
+    const botSocket = new WebSocket(WS_URL);    
+    // botSocket = new WebSocket(WS_URL); // Use the global one already declared earlier
 
 
     // Summary state
