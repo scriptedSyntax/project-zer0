@@ -9,6 +9,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Local Bitcoin Favicon -->
+    <link rel="icon" href="bitcoin.png" type="image/png">
+
 
 </head>
 <body class="container py-4">
@@ -621,7 +624,7 @@
 
         // Handle WebSocket connection open event
         botSocket.onopen = () => {
-            console.log("✅ Bot WebSocket connected.");
+            console.log("✅ Bot connected.");
             checkBotStatus(); // Check bot's status after connection
         };
 
@@ -679,13 +682,13 @@
 
         // Handle WebSocket connection close event
         botSocket.onclose = () => {
-            console.warn("❌ Bot WebSocket closed. Reconnecting...");
+            console.warn("❌ Disconnected. Reconnecting...");
             setTimeout(connectBotSocket, 2000); // Attempt to reconnect after 2 seconds
         };
 
         // Handle WebSocket error event
         botSocket.onerror = (e) => {
-            console.error("Bot WebSocket error:", e); // Log any errors
+            console.error("Bot error:", e); // Log any errors
         };
     }
 
@@ -723,7 +726,7 @@
     (function() {
     const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://')
         + location.host + '/wss/bot/';
-    console.log('🌐 Connecting Bot WebSocket to', WS_URL);
+    console.log('🌐 Connecting ', WS_URL);
     // const botSocket = new WebSocket(WS_URL);
     botSocket = new WebSocket(WS_URL); // Use the global one already declared earlier
 
@@ -756,7 +759,7 @@
 
     // WebSocket events
     botSocket.addEventListener('open', () => {
-        appendHTML(`<span class="text-blue-300">🔌 Connected to Bot socket</span>`);
+        appendHTML(`<span class="text-blue-300">🔌 Connected to Bot</span>`);
     });
 
     botSocket.addEventListener('message', (evt) => {
@@ -832,13 +835,13 @@
     });
 
     botSocket.addEventListener('close', () => {
-        appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot socket</span>`);
+        appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot</span>`);
         statusEl.textContent = 'Disconnected';
         statusEl.className = 'text-red-500 font-mono';
     });
 
     botSocket.addEventListener('error', (err) => {
-        appendHTML(`<span class="text-red-500">❌ Socket error</span>`);
+        appendHTML(`<span class="text-red-500">❌ Server error</span>`);
         console.error(err);
     });
 
