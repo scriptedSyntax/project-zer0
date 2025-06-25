@@ -510,16 +510,6 @@
     }
 
 
-        // Handle WebSocket closure
-        analysisSocket.onclose = () => {
-            appendToFeed("WebSocket closed");
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-        };
-
-        analysisSocket.onerror = (e) => console.error("Analysis WebSocket error:", e);
-    }
-
     // Button handlers for starting and stopping analysis
     startBtn.onclick = () => {
         const symbol = symbolSelect.value;
@@ -607,9 +597,11 @@
 <script>
     // Get the trade history container element
     const tradeBox = document.getElementById("trade-history");
-    tradeBox.innerHTML = ""; // Clear old entries before new data is displayed
-
-    let botSocket = null; // Initialize the WebSocket variable
+    // tradeBox.innerHTML = ""; // Clear old entries before new data is displayed
+    if (tradeBox) tradeBox.innerHTML = "";
+    else console.warn("⚠️ trade-history element not found.");
+    
+    // let botSocket = null; // Initialize the WebSocket variable
     let totalProfit = 0;
     let totalWins = 0;
     let totalLosses = 0;
