@@ -25,7 +25,7 @@ DEBUG = False
 
 # SECURITY WARNING: define the correct hosts in production!
 ALLOWED_HOSTS = [
-    'project-zer0.onrender.com/', # change this on server load to desired host
+    'project-zer0.onrender.com', # change this on server load to desired host
     '127.0.0.1',
 ]
 
