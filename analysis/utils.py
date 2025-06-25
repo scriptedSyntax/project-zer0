@@ -86,7 +86,7 @@ async def get_live_ticks(deriv_token, symbol="R_50", decimal_places_for_last_dig
 
                 yield tick
 
-            await asyncio.sleep(3)  # Throttle to avoid overwhelming the WebSocket
+            await asyncio.sleep(2)  # Throttle to avoid overwhelming the WebSocket
             # This sleep can be adjusted based on your needs(we adjust based on tick value needed)
 
     except Exception as e:
