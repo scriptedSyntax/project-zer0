@@ -457,51 +457,55 @@
         }
     });
 
-    // Function to start the analysis WebSocket connection
+    // Function to initialize the analysis WebSocket connection (starts stopped)
     function startAnalysisSocket(symbol, tickCount) {
         analysisSocket = new WebSocket("ws://" + window.location.host + "/wss/analysis/");
         window.digitBuffer = [];  // Clear buffer on new analysis start
+    
         analysisSocket.onopen = () => {
-            analysisSocket.send(JSON.stringify({
-                command: "start_analysis",
-                symbol: symbol,
-                last_x_ticks: parseInt(tickCount)
-            }));
-            analysisFeed.innerHTML = "<p class='text-muted'>Analysis started...</p>";
-            startBtn.disabled = true; // Disable start button
-            stopBtn.disabled = false; // Enable stop button
+            analysisFeed.innerHTML = "<p class='text-muted'>Analysis connected. Waiting to start...</p>";
+            startBtn.disabled = true;  // disable start button
+            stopBtn.disabled = false;    // enable stop button
         };
-
-        // Handle incoming analysis data
+    
+        // Incoming analysis data handler
         analysisSocket.onmessage = (e) => {
             try {
                 const data = JSON.parse(e.data);
                 if (data.type === 'analysis_update') {
                     appendToFeed(`Tick: ${data.tick.quote} | Time: ${data.tick.epoch} | Last Digit: ${data.last_digit}`);
-
+    
                     const lastDigit = parseInt(data.last_digit);
                     if (!isNaN(lastDigit)) {
-                        if (!window.digitBuffer) window.digitBuffer = [];
                         window.digitBuffer.push(lastDigit);
-
                         const maxLength = parseInt(lastXTicks.value) || 100;
                         if (window.digitBuffer.length > maxLength) {
-                            window.digitBuffer = window.digitBuffer.slice(-maxLength); // Limit buffer size
+                            window.digitBuffer = window.digitBuffer.slice(-maxLength);
                         }
-
-                        // Update the chart with even/odd counts
+    
                         const even = window.digitBuffer.filter(d => d % 2 === 0).length;
                         const odd = window.digitBuffer.length - even;
                         const newCounts = { even, odd };
-                        updateEvenOddChart(newCounts); // Update the chart
-                        updateDigitWeights(newCounts); // Update the UI with new digit weights
+                        updateEvenOddChart(newCounts);
+                        updateDigitWeights(newCounts);
                     }
+                } else if (data.error) {
+                    appendToFeed("Error: " + data.error);
                 }
-                else if (data.error) appendToFeed("Error: " + data.error);
             } catch (err) {
                 console.error("Analysis WS JSON parse error:", e.data);
             }
         };
+    
+        analysisSocket.onclose = () => {
+            appendToFeed("WebSocket closed");
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+    
+        analysisSocket.onerror = (e) => console.error("Analysis WebSocket error:", e);
+    }
+
 
         // Handle WebSocket closure
         analysisSocket.onclose = () => {
@@ -576,11 +580,19 @@
     window.onload = () => {
         connectWebSocket(); // Connect to the analysis WebSocket
         connectBotSocket(); // Connect to the bot WebSocket
+
+        
         const storedSymbol = localStorage.getItem("symbol-select") || "R_100"; // Load previously selected symbol
         const storedTicks = localStorage.getItem("last-x-ticks") || "100"; // Load previously selected tick count
-        symbolSelect.value = storedSymbol;
-        lastXTicks.value = storedTicks;
-        startAnalysisSocket(storedSymbol, storedTicks); // Start analysis with stored values
+    //     symbolSelect.value = storedSymbol;
+    //     lastXTicks.value = storedTicks;
+    //     // startAnalysisSocket(storedSymbol, storedTicks); // Start analysis with stored values
+    // };
+        if (symbolSelect && lastXTicks) {
+            symbolSelect.value = storedSymbol;
+            lastXTicks.value = storedTicks;
+            // startAnalysisSocket(storedSymbol, storedTicks);
+        }
     };
 </script>
 
@@ -616,25 +628,6 @@
         // Handle WebSocket incoming message event
         botSocket.onmessage = (e) => {
             const data = JSON.parse(e.data); // Parse incoming JSON data
-
-            // if (data.type === "bot_update") {
-            //     const update = data.data;
-            //     const entry = document.createElement("div");
-            //     entry.className = `mb-2 p-2 rounded text-white`;
-            //     entry.style.backgroundColor = update.profit >= 0 ? '#28a745' : '#dc3545'; // Green for win, red for loss
-
-            //     const profitFormatted = update.profit >= 0
-            //         ? `+$${update.profit.toFixed(2)}`
-            //         : `-$${Math.abs(update.profit).toFixed(2)}`;
-
-            //     entry.textContent = `[${update.timestamp}] ${update.contract_type} - ${update.result.toUpperCase()} - $${update.stake.toFixed(2)} (${profitFormatted})`;
-
-            //     // Remove "Waiting for trades..." if it exists
-            //     const waitingMsg = tradeBox.querySelector(".text-muted");
-            //     if (waitingMsg) waitingMsg.remove();
-
-            //     tradeBox.prepend(entry);
-            // }
 
             if (data.type === "bot_update") {
                 const update = data.data;
@@ -731,7 +724,9 @@
     const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://')
         + location.host + '/wss/bot/';
     console.log('🌐 Connecting Bot WebSocket to', WS_URL);
-    const botSocket = new WebSocket(WS_URL);
+    // const botSocket = new WebSocket(WS_URL);
+    botSocket = new WebSocket(WS_URL); // Use the global one already declared earlier
+
 
     // Summary state
     let totalProfit = 0, winCount = 0, lossCount = 0;
