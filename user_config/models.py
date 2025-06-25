@@ -4,8 +4,8 @@ from django.db import models
 from django.contrib.auth.models import User
 
 PREDICTION_CHOICES = [
-    ('DIGITEVEN', 'EVEN'),
-    ('DIGITODD', 'ODD'),
+    ('DIGITEVEN', 'DIGITEVEN'),
+    ('DIGITODD', 'DIGITODD'),
 ]
 
 
