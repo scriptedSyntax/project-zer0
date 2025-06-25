@@ -93,24 +93,45 @@ class DerivAPI:
         """
         self.balance_callback = callback
 
-    async def propose_contract(self, symbol, stake, contract_type, duration=1):
-        async with self.rpc_lock:
-            await self.ws.send(json.dumps({
-                "proposal": 1,
-                "amount": stake,
-                "basis": "stake",
-                "contract_type": contract_type,
-                "currency": "USD",
-                "duration": duration,
-                "duration_unit": "t",
-                "symbol": symbol
-            }))
+    # async def propose_contract(self, symbol, stake, contract_type, duration=1):
+    #     async with self.rpc_lock:
+    #         await self.ws.send(json.dumps({
+    #             "proposal": 1,
+    #             "amount": stake,
+    #             "basis": "stake",
+    #             "contract_type": contract_type,
+    #             "currency": "USD",
+    #             "duration": duration,
+    #             "duration_unit": "t",
+    #             "symbol": symbol
+    #         }))
 
-            while True:
-                resp = await self.rpc_queue.get()
-                if resp.get("msg_type") == "proposal":
-                    p = resp["proposal"]
-                    return {"proposal_id": p["id"], "ask_price": p["ask_price"]}
+    #         while True:
+    #             resp = await self.rpc_queue.get()
+    #             if resp.get("msg_type") == "proposal":
+    #                 p = resp["proposal"]
+    #                 return {"proposal_id": p["id"], "ask_price": p["ask_price"]}
+    async def propose_contract(self, symbol, stake, contract_type, duration=1):
+    async with self.rpc_lock:
+        await self.ws.send(json.dumps({
+            "proposal": 1,
+            "amount": stake,
+            "basis": "stake",
+            "contract_type": contract_type,
+            "currency": "USD",
+            "duration": duration,
+            "duration_unit": "t",
+            "symbol": symbol
+        }))
+
+        while True:
+            resp = await self.rpc_queue.get()
+            if resp.get("msg_type") == "proposal":
+                if "error" in resp:
+                    raise Exception(f"Deriv proposal error: {resp['error']['message']}")
+                p = resp["proposal"]
+                return {"proposal_id": p["id"], "ask_price": p["ask_price"]}
+
 
     async def buy_contract(self, proposal_id, price):
         async with self.rpc_lock:
