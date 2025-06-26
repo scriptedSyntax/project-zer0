@@ -715,14 +715,11 @@
 
 <!-- Script for handling bot start/stop actions via WebSocket -->
 <script>
-    (function() {
+  (function() {
     const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://')
-        + location.host + '/wss/bot/';
-    console.log('🌐 Connecting ', WS_URL);
-    // const boket(WS_URL);
-    const botSocket = new WebSocket(WS_URL);    
-    // botSocket = new WebSocket(WS_URL); // Use the global one already declared earlier
-
+      + location.host + '/wss/bot/';
+    console.log('🌐 Connecting Bot WebSocket to', WS_URL);
+    const botSocket = new WebSocket(WS_URL);
 
     // Summary state
     let totalProfit = 0, winCount = 0, lossCount = 0;
@@ -737,55 +734,64 @@
     // Helpers
     const fmtCurrency = n => '$' + n.toFixed(2);
     function clearState() {
-        totalProfit = 0; winCount = 0; lossCount = 0;
-        profitEl.textContent = fmtCurrency(0);
-        winsEl.textContent = '0';
-        lossesEl.textContent = '0';
-        logEl.innerHTML = '';
+      totalProfit = 0; winCount = 0; lossCount = 0;
+      profitEl.textContent = fmtCurrency(0);
+      winsEl.textContent = '0';
+      lossesEl.textContent = '0';
+      logEl.innerHTML = '';
     }
     function appendHTML(html) {
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = html;
-        logEl.appendChild(wrapper);
-        logEl.scrollTop = logEl.scrollHeight;
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html;
+      logEl.appendChild(wrapper);
+      logEl.scrollTop = logEl.scrollHeight;
     }
 
     // WebSocket events
     botSocket.addEventListener('open', () => {
-        appendHTML(`<span class="text-blue-300">🔌 Connected to Bot</span>`);
+      appendHTML(`<span class="text-blue-300">🔌 Connected to Bot socket</span>`);
     });
 
     botSocket.addEventListener('message', (evt) => {
-        let msg;
-        try { msg = JSON.parse(evt.data); }
-        catch {
+      let msg;
+      try {
+        msg = JSON.parse(evt.data);
+      } catch {
         appendHTML(`<span class="text-yellow-300">⚠️ ${evt.data}</span>`);
         return;
-        }
+      }
 
-        // 1) plain-text messages
-        if (msg.message) {
+      // 1) plain-text messages
+      if (msg.message) {
         appendHTML(`<span class="text-gray-400">${msg.message}</span>`);
         if (msg.message.includes('Bot started')) {
-            clearState();
-            statusEl.textContent = 'Running';
-            statusEl.className = 'text-green-400 font-mono';
+          clearState();
+          statusEl.textContent = 'Running';
+          statusEl.className = 'text-green-400 font-mono';
         }
         if (msg.message.includes('Bot stopped')) {
-            statusEl.textContent = 'Stopped';
-            statusEl.className = 'text-red-400 font-mono';
+          statusEl.textContent = 'Stopped';
+          statusEl.className = 'text-red-400 font-mono';
         }
         return;
-        }
+      }
 
-        // 2) tick events (optional)
-        if (msg.type === 'tick') {
-        appendHTML(`<span class="text-gray-500">⏱ Tick</span>`);
+      // 2) ignore all tick events (removed from view)
+      if (msg.type === 'tick') {
+        // Tick events are now silently dropped
         return;
-        }
+      }
 
-        // 3) trade updates: now with buy_time & sell_time
-        if (msg.type === 'bot_update') {
+      /*
+      // Old optional tick handler (commented out):
+      // if (msg.type === 'tick') {
+      //   appendHTML(`<span class="text-gray-500">⏱ Tick</span>`);
+      //   return;
+      // }
+      */
+
+      // 3) trade updates: now with buy_time & sell_time
+      if (msg.type === 'bot_update') {
         const { contract_id, stake, profit, result, buy_time, sell_time } = msg.data;
 
         // update summary
@@ -806,49 +812,50 @@
         const profitLabel = fmtCurrency(profit);
 
         appendHTML(`
-            <div class="p-2 border-l-4 ${color} bg-gray-800 rounded space-y-1">
+          <div class="p-2 border-l-4 ${color} bg-gray-800 rounded space-y-1">
             <div class="flex justify-between text-sm font-mono">
-                <span>${emoji} ${contract_id}</span>
-                <span>Buy: ${buyT}</span>
-                <span>Sell: ${sellT}</span>
+              <span>${emoji} ${contract_id}</span>
+              <span>Buy: ${buyT}</span>
+              <span>Sell: ${sellT}</span>
             </div>
             <div class="text-gray-300 text-sm">
-                Stake: ${stake}, P/L: 
-                <span class="${result==='win'?'text-green-400':'text-red-400'}">
+              Stake: ${stake}, P/L:
+              <span class="${result==='win'?'text-green-400':'text-red-400'}">
                 ${profitLabel}
-                </span>
+              </span>
             </div>
-            </div>
+          </div>
         `);
         return;
-        }
+      }
 
-        // fallback
-        appendHTML(`<span class="text-yellow-300">ℹ️ ${evt.data}</span>`);
+      // fallback for any other message types
+      appendHTML(`<span class="text-yellow-300">ℹ️ ${evt.data}</span>`);
     });
 
     botSocket.addEventListener('close', () => {
-        appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot</span>`);
-        statusEl.textContent = 'Disconnected';
-        statusEl.className = 'text-red-500 font-mono';
+      appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot socket</span>`);
+      statusEl.textContent = 'Disconnected';
+      statusEl.className = 'text-red-500 font-mono';
     });
 
     botSocket.addEventListener('error', (err) => {
-        appendHTML(`<span class="text-red-500">❌ Server error</span>`);
-        console.error(err);
+      appendHTML(`<span class="text-red-500">❌ Socket error</span>`);
+      console.error(err);
     });
 
     // Button handlers
     document.getElementById('start-bot-btn')
-        .addEventListener('click', () =>
+      .addEventListener('click', () =>
         botSocket.readyState===1 && botSocket.send(JSON.stringify({command:'start_bot'}))
-        );
+      );
     document.getElementById('stop-bot-btn')
-        .addEventListener('click', () =>
+      .addEventListener('click', () =>
         botSocket.readyState===1 && botSocket.send(JSON.stringify({command:'stop_bot'}))
-        );
-    })();
+      );
+  })();
 </script>
+
 
 
 
