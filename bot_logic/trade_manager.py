@@ -1,10 +1,10 @@
+# bot_logic/trade_manager.py
 
-### bot_logic/trade_manager.py
-# ```python
 import asyncio
 import json
 import logging
 import websockets
+from typing import Callable
 
 DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=1089"
 logger = logging.getLogger(__name__)
@@ -15,102 +15,90 @@ class DerivAPI:
         self.ws = None
         self.rpc_lock = asyncio.Lock()
         self.rpc_queue = asyncio.Queue()
-        self.contract_futures = {}
-        self.recv_task = None
+        self.contract_futures = {}               # contract_id -> Future
+        self.contract_closed_callbacks = {}      # contract_id -> [callbacks]
         self.balance_callback = None
-        self.last_balance = None
+        self.recv_task = None
 
     async def connect(self):
         self.ws = await websockets.connect(DERIV_WS_URL)
         await self._authorize()
-
-        # subscribe to balance updates
-        await self.ws.send(json.dumps({
-            "balance": 1,
-            "subscribe": 1
-        }))
-
+        # subscribe to balance
+        await self.ws.send(json.dumps({"balance":1,"subscribe":1}))
+        # start recv loop
         self.recv_task = asyncio.create_task(self._recv_loop())
 
     async def _authorize(self):
         await self.ws.send(json.dumps({"authorize": self.token}))
-        resp = json.loads(await self.ws.recv())
+        resp_raw = await self.ws.recv()
+        resp = json.loads(resp_raw)
         if "error" in resp:
-            raise Exception(resp["error"]["message"])
+            # log the full raw response for debugging
+            logger.error(f"Deriv authorize failed: {resp_raw}")
+            # include both message and code for clarity
+            code    = resp["error"].get("code")
+            message = resp["error"].get("message")
+            raise Exception(f"Deriv auth error {code}: {message}")
         logger.info("✅ Authorized with Deriv API.")
 
     async def _recv_loop(self):
-        async for raw in self.ws:
-            data = json.loads(raw)
+        try:
+            async for raw in self.ws:
+                data = json.loads(raw)
 
-            # balance update
-            if data.get("msg_type") == "balance":
-                bal = float(data["balance"].get("balance", 0))
-                self.last_balance = bal
-                if self.balance_callback:
-                    self.balance_callback(bal)
-                continue
-
-            # # handle contract closure update
-            # if data.get("msg_type") == "proposal_open_contract":
-            #     poc = data.get("proposal_open_contract", {})
-            #     cid = poc.get("contract_id")
-            #     fut = self.contract_futures.pop(cid, None)
-
-            #     if fut and not fut.done():
-            #         fut.set_result({
-            #             "contract_id": cid,
-            #             "profit": float(poc.get("profit", 0)),
-            #             "timestamp": poc.get("sell_time"),
-            #         })
-            
-            # handle contract closure update — only when it’s actually sold
-            if data.get("msg_type") == "proposal_open_contract":
-                poc = data["proposal_open_contract"]
-
-                # ‼️ skip every in-flight update until contract is closed
-                # Deriv sets is_sold=1 (or status="sold") when it's final
-                if poc.get("is_sold") != 1:
+                # 1) Balance updates
+                if data.get("msg_type") == "balance":
+                    bal = float(data["balance"].get("balance", 0))
+                    if self.balance_callback:
+                        self.balance_callback(bal)
                     continue
 
-                cid = poc["contract_id"]
-                fut = self.contract_futures.pop(cid, None)
+                # 2) Contract closure updates
+                if data.get("msg_type") == "proposal_open_contract":
+                    poc = data["proposal_open_contract"]
+                    # only care once it's actually sold
+                    if poc.get("is_sold") != 1:
+                        continue
 
-                if fut and not fut.done():
-                    fut.set_result({
+                    cid = poc["contract_id"]
+                    # 2.a) fulfill any waiting future
+                    fut = self.contract_futures.pop(cid, None)
+                    result = {
                         "contract_id": cid,
-                        # now this really is net profit (payout minus stake)
                         "profit": float(poc.get("profit", 0)),
-                        "timestamp": poc.get("sell_time"),
-                    })
+                        "sell_time": poc.get("sell_time")
+                    }
+                    if fut and not fut.done():
+                        fut.set_result(result)
 
-            else:
+                    # 2.b) fire registered callbacks
+                    callbacks = self.contract_closed_callbacks.pop(cid, [])
+                    for cb in callbacks:
+                        try:
+                            cb(result)
+                        except Exception:
+                            logger.exception("Error in contract_closed callback")
+                    continue
+
+                # 3) All other RPCs go onto the queue
                 await self.rpc_queue.put(data)
 
-    def subscribe_balance(self, callback):
-        """
-        Register a callback to be invoked with the new balance whenever it updates.
-        """
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("Exception in DerivAPI._recv_loop")
+
+    def subscribe_balance(self, callback: Callable[[float], None]):
+        """Register for real-time balance updates."""
         self.balance_callback = callback
 
-    # async def propose_contract(self, symbol, stake, contract_type, duration=1):
-    #     async with self.rpc_lock:
-    #         await self.ws.send(json.dumps({
-    #             "proposal": 1,
-    #             "amount": stake,
-    #             "basis": "stake",
-    #             "contract_type": contract_type,
-    #             "currency": "USD",
-    #             "duration": duration,
-    #             "duration_unit": "t",
-    #             "symbol": symbol
-    #         }))
+    def subscribe_contract_closed(self, contract_id: str, callback: Callable[[dict], None]):
+        """
+        Register a callback to be invoked immediately when
+        a contract_id is marked is_sold==1.
+        """
+        self.contract_closed_callbacks.setdefault(contract_id, []).append(callback)
 
-    #         while True:
-    #             resp = await self.rpc_queue.get()
-    #             if resp.get("msg_type") == "proposal":
-    #                 p = resp["proposal"]
-    #                 return {"proposal_id": p["id"], "ask_price": p["ask_price"]}
     async def propose_contract(self, symbol, stake, contract_type, duration=1):
         async with self.rpc_lock:
             await self.ws.send(json.dumps({
@@ -123,44 +111,40 @@ class DerivAPI:
                 "duration_unit": "t",
                 "symbol": symbol
             }))
-    
             while True:
                 resp = await self.rpc_queue.get()
                 if resp.get("msg_type") == "proposal":
-                    if "error" in resp:
-                        raise Exception(f"Deriv proposal error: {resp['error']['message']}")
                     p = resp["proposal"]
-                    print("[DEBUG] Proposal response:", resp)
                     return {"proposal_id": p["id"], "ask_price": p["ask_price"]}
-
 
     async def buy_contract(self, proposal_id, price):
         async with self.rpc_lock:
             await self.ws.send(json.dumps({"buy": proposal_id, "price": price}))
-
             while True:
                 resp = await self.rpc_queue.get()
                 if resp.get("msg_type") == "buy":
                     b = resp["buy"]
                     cid = b["contract_id"]
                     purchase_time = b["purchase_time"]
-
+                    # subscribe to its closure event
                     await self.ws.send(json.dumps({
                         "proposal_open_contract": 1,
                         "contract_id": cid,
                         "subscribe": 1
                     }))
-
                     fut = asyncio.get_event_loop().create_future()
                     self.contract_futures[cid] = fut
-
                     return {"contract_id": cid, "timestamp": purchase_time}
 
     async def get_result(self, contract_id):
+        """
+        Polling fallback; not used in event-driven mode,
+        but retained for backward compatibility.
+        """
         fut = self.contract_futures.get(contract_id)
         if fut:
             return await fut
-        raise Exception(f"No result future found for contract {contract_id}")
+        raise Exception(f"No result future for contract {contract_id}")
 
     async def close(self):
         if self.recv_task:
@@ -179,8 +163,8 @@ class TradeManager:
     async def propose_contract(self, *args, **kwargs):
         return await self.api.propose_contract(*args, **kwargs)
 
-    async def buy_contract(self, proposal_id, ask_price):
-        return await self.api.buy_contract(proposal_id, ask_price)
+    async def buy_contract(self, *args, **kwargs):
+        return await self.api.buy_contract(*args, **kwargs)
 
     async def get_result(self, contract_id):
         return await self.api.get_result(contract_id)
