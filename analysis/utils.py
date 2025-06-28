@@ -86,7 +86,7 @@ async def get_live_ticks(deriv_token, symbol="R_50", decimal_places_for_last_dig
 
                 yield tick
 
-            await asyncio.sleep(2.9)  # Throttle to avoid overwhelming the WebSocket
+            await asyncio.sleep(2.8)  # Throttle to avoid overwhelming the WebSocket
             # This sleep can be adjusted based on your needs(we adjust based on tick value needed)
 
     except Exception as e:
@@ -104,6 +104,7 @@ async def get_live_ticks(deriv_token, symbol="R_50", decimal_places_for_last_dig
             # print("✅ WebSocket connection closed.")
         except Exception as cleanup_err:
             print(f"[WARN] Cleanup error during disconnect: {cleanup_err}")
+       
             
 # 🔹 Even/Odd Trade Execution (DIGITEVEN / DIGITODD)
 async def place_even_odd_trade(deriv_token, symbol, stake, contract_type, duration=1):

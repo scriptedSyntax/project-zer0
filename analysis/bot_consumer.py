@@ -1,5 +1,7 @@
-# analysis/bot_consumer.py
 
+
+### analysis/bot_consumer.py  
+# ```python
 import json
 import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -20,7 +22,18 @@ class BotConsumer(AsyncWebsocketConsumer):
             return
 
         await self.accept()
+        # await self.send(json.dumps({"message": "Bot WebSocket connected."}))
         await self.send(json.dumps({"message": "Bot connected."}))
+
+    # async def connect(self):
+    #     if not self.scope["user"].is_authenticated:
+    #         await self.close()
+    #         return
+        
+    #     await self.accept()
+    #     await self.send(json.dumps({"message": "Bot WebSocket connected."}))
+    #     self.bot_task = None
+    #     self.stop_event = None
 
     async def disconnect(self, close_code):
         if self.bot_task:
@@ -39,18 +52,12 @@ class BotConsumer(AsyncWebsocketConsumer):
         if cmd == "start_bot":
             if self.bot_task and not self.bot_task.done():
                 return await self.send(json.dumps({"message": "Bot already running."}))
-
             self.stop_event = asyncio.Event()
-
             async def send_update(u):
                 await self.send(json.dumps(u))
-
-            # Start the bot and attach a watcher for uncaught exceptions
             self.bot_task = asyncio.create_task(
                 run_bot_for_user(self.scope["user"].id, self.stop_event, send_update)
             )
-            asyncio.create_task(self._watch_bot_task())
-
             await self.send(json.dumps({"message": "Bot started."}))
 
         elif cmd == "stop_bot":
@@ -68,17 +75,3 @@ class BotConsumer(AsyncWebsocketConsumer):
         else:
             await self.send(json.dumps({"error": "Unknown command."}))
 
-    async def _watch_bot_task(self):
-        """
-        Waits for the bot_task to complete and catches any exceptions,
-        sending a clean error message back over the WebSocket.
-        """
-        try:
-            await self.bot_task
-        except Exception as e:
-            logger.error(f"[BotConsumer] bot_task exception: {e}")
-            # Send error payload without closing the socket
-            await self.send(json.dumps({
-                "type": "error",
-                "message": str(e)
-            }))

@@ -6,7 +6,7 @@ import logging
 import websockets
 from typing import Callable
 
-DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=1089"
+DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=81950"
 logger = logging.getLogger(__name__)
 
 class DerivAPI:
@@ -22,23 +22,17 @@ class DerivAPI:
 
     async def connect(self):
         self.ws = await websockets.connect(DERIV_WS_URL)
-        await self._authorize()
+        await self.authorize()
         # subscribe to balance
         await self.ws.send(json.dumps({"balance":1,"subscribe":1}))
         # start recv loop
         self.recv_task = asyncio.create_task(self._recv_loop())
 
-    async def _authorize(self):
+    async def authorize(self):
         await self.ws.send(json.dumps({"authorize": self.token}))
-        resp_raw = await self.ws.recv()
-        resp = json.loads(resp_raw)
+        resp = json.loads(await self.ws.recv())
         if "error" in resp:
-            # log the full raw response for debugging
-            logger.error(f"Deriv authorize failed: {resp_raw}")
-            # include both message and code for clarity
-            code    = resp["error"].get("code")
-            message = resp["error"].get("message")
-            raise Exception(f"Deriv auth error {code}: {message}")
+            raise Exception(resp["error"]["message"])
         logger.info("✅ Authorized with Deriv API.")
 
     async def _recv_loop(self):
