@@ -27,6 +27,7 @@ DEBUG = False
 ALLOWED_HOSTS = [
     'project-zer0.onrender.com', # change this on server load to desired host
     '127.0.0.1',
+    '*',
 ]
 
 # Application definition
