@@ -74,10 +74,10 @@ def calculate_profit(trade_result, stake, payout_ratio=1.9):
     else:
         return 0.0
 
-def random_delay(min_delay=0.5, max_delay=2.0):
-    """
-    Returns random float delay between min_delay and max_delay.
-    Useful to add human-like delays in bot logic.
-    """
-    return round(random.uniform(min_delay, max_delay), 2)
+# def random_delay(min_delay=0.5, max_delay=2.0):
+#     """
+#     Returns random float delay between min_delay and max_delay.
+#     Useful to add human-like delays in bot logic.
+#     """
+#     return round(random.uniform(min_delay, max_delay), 2)
 
