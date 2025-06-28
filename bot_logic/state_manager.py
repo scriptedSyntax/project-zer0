@@ -13,7 +13,7 @@ class BotState:
         self.user_id = user_id
         self.running = False
         self.loss_counter = 0
-        self.pointer = 0
+        self.pointer = 0 
         self.martingale_sequence: List[float] = []
         self.last_balance = None
         self.trade_history: List[dict] = []
@@ -23,19 +23,28 @@ class BotState:
         self.running = True
         self.loss_counter = 0
         self.pointer = 0
+        self.do_martingale_after = settings.do_martingale_after
         self.martingale_sequence = generate_martingale_sequence(
             base=settings.stake,
             factor=settings.martingale,
             levels=levels
         )
 
-    def get_next_pointer_stake(self) -> float:
-        """O(1) stake lookup and pointer advance (up to end)."""
-        stake = self.martingale_sequence[self.pointer]
-        if self.pointer < len(self.martingale_sequence) - 1:
-            self.pointer += 1
-        return stake
+#    def get_next_pointer_stake(self) -> float:
+#        """O(1) stake lookup and pointer advance (up to end)."""
+#        stake = self.martingale_sequence[self.pointer]
+#        if self.pointer < len(self.martingale_sequence) - 1:
+#            self.pointer += 1
+#        return stake
 
+    def get_next_pointer_stake(self) -> float:
+        stake = self.martingale_sequence[self.pointer]
+        if self.loss_counter >= self.do_martingale_after:
+            if self.pointer < len(self.martingale_sequence) - 1:
+                self.pointer += 1
+            self.loss_counter = 0  # reset loss counter after martingale trigger
+        return stake
+    
     def record_loss(self):
         """Called on a losing trade (pointer already advanced)."""
         self.loss_counter += 1
