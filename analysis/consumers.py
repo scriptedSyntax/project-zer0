@@ -14,16 +14,30 @@ from bot_logic.state_manager import is_bot_running
 from bot_logic.bot_core import run_bot_for_user
 
 class AnalysisConsumer(AsyncWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = None
+        self.tick_streamer = None
+        self.balance_task = None
+        self.bot_task = None
+        self.bot_stop_event = None
+
     async def connect(self):
         self.user = self.scope["user"]
         if not self.user.is_authenticated:
             await self.close()
             return
 
-        self.tick_streamer = None
-        self.balance_task = None
-        self.bot_task = None
-        self.bot_stop_event = None
+    # async def connect(self):
+    #     self.user = self.scope["user"]
+    #     if not self.user.is_authenticated:
+    #         await self.close()
+    #         return
+
+    #     self.tick_streamer = None
+    #     self.balance_task = None
+    #     self.bot_task = None
+    #     self.bot_stop_event = None
 
         await self.accept()
         await self.send(json.dumps({"message": "WebSocket connected to analysis"}))
@@ -211,8 +225,6 @@ class AnalysisConsumer(AsyncWebsocketConsumer):
 
     #     except Exception as e:
     #         print(f"[ERROR] Balance loop crashed: {e}")
-    
-    
     async def send_balance_loop(self):
         try:
             user_profile = await sync_to_async(UserProfile.objects.get)(user=self.user)
