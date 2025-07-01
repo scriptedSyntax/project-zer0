@@ -28,7 +28,7 @@ DEBUG = False
 # SECURITY WARNING: define the correct hosts in production!
 
 ALLOWED_HOSTS = [
-    'project-zero-s44n.onrender.com',
+    'project-zer0.onrender.com',
     '127.0.0.1',
 ]
 
