@@ -3,6 +3,9 @@
 import asyncio
 import math
 from utils.deriv_api import DerivAPI
+import logging
+
+logger = logging.getLogger(__name__)
 
 # 🔹 Get Available Volatility Symbols
 async def get_available_volatility_symbols(deriv_token):
@@ -41,6 +44,8 @@ async def get_available_volatility_symbols(deriv_token):
         await api.close()
     
     return available_symbols
+
+
 
 # 🔹 Fast Live Ticks Generator with Decimal-Aware Last Digit Extraction
 async def get_live_ticks(deriv_token, symbol="R_50", decimal_places_for_last_digit=2):
@@ -84,9 +89,12 @@ async def get_live_ticks(deriv_token, symbol="R_50", decimal_places_for_last_dig
                     "last_digit": last_digit
                 }
 
+                logger.debug(f"[TICK] epoch={tick['epoch']}, quote={raw_quote}, last_digit={last_digit}")
+
+
                 yield tick
-# was originally 2.8
-            await asyncio.sleep(0.5)  # Throttle to avoid overwhelming the WebSocket
+
+            # await asyncio.sleep(0.33)  # Throttle to avoid overwhelming the WebSocket
             # This sleep can be adjusted based on your needs(we adjust based on tick value needed)
 
     except Exception as e:
@@ -100,11 +108,11 @@ async def get_live_ticks(deriv_token, symbol="R_50", decimal_places_for_last_dig
             if subscription_id:
                 await api.unsubscribe(subscription_id)
                 print(f"✅ Unsubscribed from {subscription_id}.")
-            # await api.close()
-            # print("✅ WebSocket connection closed.")
+            await api.close()
+            print("✅ WebSocket connection closed.")
         except Exception as cleanup_err:
             print(f"[WARN] Cleanup error during disconnect: {cleanup_err}")
-       
+      
             
 # 🔹 Even/Odd Trade Execution (DIGITEVEN / DIGITODD)
 async def place_even_odd_trade(deriv_token, symbol, stake, contract_type, duration=1):

@@ -1,78 +1,117 @@
 # bot_logic/state_manager.py
 
-from typing import List
+import collections
+from collections import deque
+from typing import Deque, List
 from user_config.models import BotSettings
 
+# In-memory store of BotState per user
 user_bot_states = {}  # user_id -> BotState
 
 def generate_martingale_sequence(base: float, factor: float, levels: int) -> List[float]:
-    return [round(base * (factor ** i), 2) for i in range(levels)]
+    """
+    Generate Martingale sequence: [base, base*factor, base*factor^2, ...]
+    """
+    seq = [round(base * (factor ** i), 2) for i in range(levels)]
+    return seq
+ 
+def add_trade(self, trade: dict):
+    self.trade_history.append(trade)
+    self.awaiting_result = False  # ✅ Reset trade block after trade resolves
 
 class BotState:
     def __init__(self, user_id: int):
         self.user_id = user_id
         self.running = False
         self.loss_counter = 0
-        self.pointer = 0 
+        self.is_recovering = False
         self.martingale_sequence: List[float] = []
-        self.last_balance = None
+        self.stake_queue: Deque[float] = deque()
+        self.last_trade_epoch = None
         self.trade_history: List[dict] = []
+        self.awaiting_result = False  # 🚦 Block further trades until result arrives
+        self.last_result = None       # 🧾 Store result (can help with advanced stake logic)
 
-    def init_martingale(self, settings: BotSettings, levels: int = 60):
-        """Precompute stake array and reset pointer/loss counter."""
+    def init_martingale(self, bot_settings: BotSettings):
+        """
+        Initialize martingale parameters and stake queue at bot start.
+        """
         self.running = True
         self.loss_counter = 0
-        self.pointer = 0
-        self.do_martingale_after = settings.do_martingale_after
+        self.is_recovering = False
+        # Build sequence of stake levels (fixed max levels = 20)
         self.martingale_sequence = generate_martingale_sequence(
-            base=settings.stake,
-            factor=settings.martingale,
-            levels=levels
+            base=bot_settings.stake,
+            factor=bot_settings.martingale,
+            levels=20
+        )
+        # Start with base stake
+        self.stake_queue.clear()
+        self.stake_queue.append(bot_settings.stake)
+
+    def get_next_priority_stake(self, base_stake: float) -> float:
+        """
+        Return the next stake from the queue, or default to base_stake.
+        """
+        if self.stake_queue:
+            return self.stake_queue.popleft()
+        return base_stake
+
+    def reset_on_win(self, base_stake: float):
+        """
+        Reset state after a winning trade.
+        """
+        self.loss_counter = 0
+        self.is_recovering = False
+        self.stake_queue.clear()
+        self.stake_queue.append(base_stake)
+
+    def record_loss(self):
+        """
+        Update state on a lost trade.
+        """
+        self.loss_counter += 1
+        self.is_recovering = True
+        # clear any queued stakes
+        self.stake_queue.clear()
+
+    def should_martingale(self, trigger_after: int) -> bool:
+        """
+        Determine if martingale stake should be applied.
+        """
+        return (
+            self.loss_counter >= trigger_after
+            and self.loss_counter < len(self.martingale_sequence)
         )
 
-#    def get_next_pointer_stake(self) -> float:
-#        """O(1) stake lookup and pointer advance (up to end)."""
-#        stake = self.martingale_sequence[self.pointer]
-#        if self.pointer < len(self.martingale_sequence) - 1:
-#            self.pointer += 1
-#        return stake
+    def get_next_martingale_stake(self) -> float:
+        """
+        Get stake amount for the current martingale level.
+        """
+        idx = min(self.loss_counter, len(self.martingale_sequence) - 1)
+        return self.martingale_sequence[idx]
 
-    def get_next_pointer_stake(self) -> float:
-        stake = self.martingale_sequence[self.pointer]
-        if self.loss_counter >= self.do_martingale_after:
-            if self.pointer < len(self.martingale_sequence) - 1:
-                self.pointer += 1
-            self.loss_counter = 0  # reset loss counter after martingale trigger
-        return stake
-    
-    def record_loss(self):
-        """Called on a losing trade (pointer already advanced)."""
-        self.loss_counter += 1
-
-    def reset_on_win(self):
-        """Called on a winning trade: reset pointer and loss counter."""
-        self.loss_counter = 0
-        self.pointer = 0
+    def enqueue_stake(self, stake: float):
+        """
+        Queue a stake to be used on the very next tick.
+        """
+        self.stake_queue.appendleft(stake)
 
     def add_trade(self, trade: dict):
-        """Append a trade record for history & dashboard metrics."""
+        """
+        Record trade details for history.
+        """
         self.trade_history.append(trade)
+    
+    def reset_profit_tracking(self):
+        """
+        Reset any profit-related temporary tracking values.
+        Currently a placeholder for safety; extendable if needed.
+        """
+        pass  # If you later add attributes like self.last_profit, reset them here
 
-    def set_balance(self, balance: float):
-        """Update last known account balance for stop checks."""
-        self.last_balance = balance
-
-    def stop(self):
-        """Mark bot as no longer running."""
-        self.running = False
-
-    def to_summary(self) -> dict:
-        """Compute total_profit, wins, and losses for the dashboard."""
-        wins = sum(1 for t in self.trade_history if t["result"] == "WIN")
-        losses = sum(1 for t in self.trade_history if t["result"] == "LOSS")
-        total = round(sum(t["profit"] for t in self.trade_history), 2)
-        return {"total_profit": total, "wins": wins, "losses": losses}
+# Helper to check if bot is running
 
 def is_bot_running(user_id: int) -> bool:
     state = user_bot_states.get(user_id)
-    return bool(state and state.running)
+    return state.running if state else False

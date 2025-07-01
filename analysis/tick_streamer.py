@@ -89,7 +89,7 @@ class LiveTickStreamer:
                     }
                 })
 
-                await asyncio.sleep(1)  # Throttle to avoid overwhelming the WebSocket
+                # await asyncio.sleep(0.1)  # Throttle to avoid overwhelming the WebSocket
 
         except Exception as e:
             print(f"[ERROR] LiveTickStreamer.run: {e}")
