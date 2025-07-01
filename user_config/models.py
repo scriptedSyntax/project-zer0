@@ -40,6 +40,9 @@ class BotSettings(models.Model):
     # loss_counter = models.IntegerField(default=0)
     ticks = models.IntegerField(default=1)
     symbol = models.CharField(max_length=20, choices=SYMBOL_CHOICES, default="R_50")
+    tick_result_delay = models.IntegerField(default=1)
+
+    # models.py
 
     def __str__(self):
         return f"{self.user.username} Bot Settings"
