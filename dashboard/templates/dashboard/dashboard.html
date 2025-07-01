@@ -9,6 +9,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Local Bitcoin Favicon -->
+    <link rel="icon" href="bitcoin.png" type="image/png">
+
 
 </head>
 <body class="container py-4">
@@ -335,7 +338,9 @@
 
     // Function to connect to the bot WebSocket server
     function connectWebSocket() {
-        ws = new WebSocket("ws://" + window.location.host + "/wss/analysis/"); // Open connection to the server's analysis WebSocket
+        // ws = new WebSocket("ws://" + window.location.host + "/wss/analysis/"); // Open connection to the server's analysis WebSocket
+        const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+        ws = new WebSocket(protocol + window.location.host + "/wss/analysis/");
         ws.onopen = () => {
             console.log("Bot WebSocket connected");
             sendBotStatusCheck(); // ✅ Only check bot status now
@@ -379,14 +384,21 @@
         elem.className = isRunning ? "status-running" : "status-stopped";
     }
 
-    // Function to update balance information in the UI
+    // ✅ Function to update balance information in the UI (with fallback and null-check)
     function updateBalanceUI(balance, currency) {
         const balanceElem = document.getElementById("balance-display");
-        if (balanceElem) {
-            balanceElem.innerHTML = `${balance} <small class="text-muted">${currency}</small>`;
-            balanceElem.classList.add("pulse");
-            setTimeout(() => balanceElem.classList.remove("pulse"), 500); // Animate balance update
+        if (!balanceElem) {
+            console.warn("⚠️ balance-display element not found.");
+            return;
         }
+    
+        const safeBalance = typeof balance === "number" ? balance.toFixed(2) : balance || "0.00";
+        const safeCurrency = currency || "";
+    
+        balanceElem.innerHTML = `${safeBalance} <small class="text-muted">${safeCurrency}</small>`;
+        balanceElem.classList.add("pulse");
+    
+        setTimeout(() => balanceElem.classList.remove("pulse"), 500); // Animate balance update
     }
 
     // Function to handle AJAX form submissions
@@ -448,61 +460,55 @@
         }
     });
 
-    // Function to start the analysis WebSocket connection
+    // Function to initialize the analysis WebSocket connection (starts stopped)
     function startAnalysisSocket(symbol, tickCount) {
         analysisSocket = new WebSocket("ws://" + window.location.host + "/wss/analysis/");
         window.digitBuffer = [];  // Clear buffer on new analysis start
+    
         analysisSocket.onopen = () => {
-            analysisSocket.send(JSON.stringify({
-                command: "start_analysis",
-                symbol: symbol,
-                last_x_ticks: parseInt(tickCount)
-            }));
-            analysisFeed.innerHTML = "<p class='text-muted'>Analysis started...</p>";
-            startBtn.disabled = true; // Disable start button
-            stopBtn.disabled = false; // Enable stop button
+            analysisFeed.innerHTML = "<p class='text-muted'>Analysis connected. Waiting to start...</p>";
+            startBtn.disabled = true;  // disable start button
+            stopBtn.disabled = false;    // enable stop button
         };
-
-        // Handle incoming analysis data
+    
+        // Incoming analysis data handler
         analysisSocket.onmessage = (e) => {
             try {
                 const data = JSON.parse(e.data);
                 if (data.type === 'analysis_update') {
                     appendToFeed(`Tick: ${data.tick.quote} | Time: ${data.tick.epoch} | Last Digit: ${data.last_digit}`);
-
+    
                     const lastDigit = parseInt(data.last_digit);
                     if (!isNaN(lastDigit)) {
-                        if (!window.digitBuffer) window.digitBuffer = [];
                         window.digitBuffer.push(lastDigit);
-
                         const maxLength = parseInt(lastXTicks.value) || 100;
                         if (window.digitBuffer.length > maxLength) {
-                            window.digitBuffer = window.digitBuffer.slice(-maxLength); // Limit buffer size
+                            window.digitBuffer = window.digitBuffer.slice(-maxLength);
                         }
-
-                        // Update the chart with even/odd counts
+    
                         const even = window.digitBuffer.filter(d => d % 2 === 0).length;
                         const odd = window.digitBuffer.length - even;
                         const newCounts = { even, odd };
-                        updateEvenOddChart(newCounts); // Update the chart
-                        updateDigitWeights(newCounts); // Update the UI with new digit weights
+                        updateEvenOddChart(newCounts);
+                        updateDigitWeights(newCounts);
                     }
+                } else if (data.error) {
+                    appendToFeed("Error: " + data.error);
                 }
-                else if (data.error) appendToFeed("Error: " + data.error);
             } catch (err) {
                 console.error("Analysis WS JSON parse error:", e.data);
             }
         };
-
-        // Handle WebSocket closure
+    
         analysisSocket.onclose = () => {
             appendToFeed("WebSocket closed");
             startBtn.disabled = false;
             stopBtn.disabled = true;
         };
-
+    
         analysisSocket.onerror = (e) => console.error("Analysis WebSocket error:", e);
     }
+
 
     // Button handlers for starting and stopping analysis
     startBtn.onclick = () => {
@@ -567,11 +573,19 @@
     window.onload = () => {
         connectWebSocket(); // Connect to the analysis WebSocket
         connectBotSocket(); // Connect to the bot WebSocket
+
+        
         const storedSymbol = localStorage.getItem("symbol-select") || "R_100"; // Load previously selected symbol
         const storedTicks = localStorage.getItem("last-x-ticks") || "100"; // Load previously selected tick count
-        symbolSelect.value = storedSymbol;
-        lastXTicks.value = storedTicks;
-        startAnalysisSocket(storedSymbol, storedTicks); // Start analysis with stored values
+    //     symbolSelect.value = storedSymbol;
+    //     lastXTicks.value = storedTicks;
+    //     // startAnalysisSocket(storedSymbol, storedTicks); // Start analysis with stored values
+    // };
+        if (symbolSelect && lastXTicks) {
+            symbolSelect.value = storedSymbol;
+            lastXTicks.value = storedTicks;
+            // startAnalysisSocket(storedSymbol, storedTicks);
+        }
     };
 </script>
 
@@ -583,9 +597,11 @@
 <script>
     // Get the trade history container element
     const tradeBox = document.getElementById("trade-history");
-    tradeBox.innerHTML = ""; // Clear old entries before new data is displayed
-
-    let botSocket = null; // Initialize the WebSocket variable
+    // tradeBox.innerHTML = ""; // Clear old entries before new data is displayed
+    if (tradeBox) tradeBox.innerHTML = "";
+    else console.warn("⚠️ trade-history element not found.");
+    
+    // let botSocket = null; // Initialize the WebSocket variable
     let totalProfit = 0;
     let totalWins = 0;
     let totalLosses = 0;
@@ -600,32 +616,13 @@
 
         // Handle WebSocket connection open event
         botSocket.onopen = () => {
-            console.log("✅ Bot WebSocket connected.");
+            console.log("✅ Bot connected.");
             checkBotStatus(); // Check bot's status after connection
         };
 
         // Handle WebSocket incoming message event
         botSocket.onmessage = (e) => {
             const data = JSON.parse(e.data); // Parse incoming JSON data
-
-            // if (data.type === "bot_update") {
-            //     const update = data.data;
-            //     const entry = document.createElement("div");
-            //     entry.className = `mb-2 p-2 rounded text-white`;
-            //     entry.style.backgroundColor = update.profit >= 0 ? '#28a745' : '#dc3545'; // Green for win, red for loss
-
-            //     const profitFormatted = update.profit >= 0
-            //         ? `+$${update.profit.toFixed(2)}`
-            //         : `-$${Math.abs(update.profit).toFixed(2)}`;
-
-            //     entry.textContent = `[${update.timestamp}] ${update.contract_type} - ${update.result.toUpperCase()} - $${update.stake.toFixed(2)} (${profitFormatted})`;
-
-            //     // Remove "Waiting for trades..." if it exists
-            //     const waitingMsg = tradeBox.querySelector(".text-muted");
-            //     if (waitingMsg) waitingMsg.remove();
-
-            //     tradeBox.prepend(entry);
-            // }
 
             if (data.type === "bot_update") {
                 const update = data.data;
@@ -677,13 +674,13 @@
 
         // Handle WebSocket connection close event
         botSocket.onclose = () => {
-            console.warn("❌ Bot WebSocket closed. Reconnecting...");
+            console.warn("❌ Disconnected. Reconnecting...");
             setTimeout(connectBotSocket, 2000); // Attempt to reconnect after 2 seconds
         };
 
         // Handle WebSocket error event
         botSocket.onerror = (e) => {
-            console.error("Bot WebSocket error:", e); // Log any errors
+            console.error("Bot error:", e); // Log any errors
         };
     }
 
@@ -721,8 +718,11 @@
     (function() {
     const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://')
         + location.host + '/wss/bot/';
-    console.log('🌐 Connecting Bot WebSocket to', WS_URL);
-    const botSocket = new WebSocket(WS_URL);
+    console.log('🌐 Connecting ', WS_URL);
+    // const boket(WS_URL);
+    const botSocket = new WebSocket(WS_URL);    
+    // botSocket = new WebSocket(WS_URL); // Use the global one already declared earlier
+
 
     // Summary state
     let totalProfit = 0, winCount = 0, lossCount = 0;
@@ -752,7 +752,7 @@
 
     // WebSocket events
     botSocket.addEventListener('open', () => {
-        appendHTML(`<span class="text-blue-300">🔌 Connected to Bot socket</span>`);
+        appendHTML(`<span class="text-blue-300">🔌 Connected to Bot</span>`);
     });
 
     botSocket.addEventListener('message', (evt) => {
@@ -828,13 +828,13 @@
     });
 
     botSocket.addEventListener('close', () => {
-        appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot socket</span>`);
+        appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot</span>`);
         statusEl.textContent = 'Disconnected';
         statusEl.className = 'text-red-500 font-mono';
     });
 
     botSocket.addEventListener('error', (err) => {
-        appendHTML(`<span class="text-red-500">❌ Socket error</span>`);
+        appendHTML(`<span class="text-red-500">❌ Server error</span>`);
         console.error(err);
     });
 
