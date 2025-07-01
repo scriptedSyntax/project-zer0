@@ -199,6 +199,53 @@
   </div>
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const settingsForm = document.getElementById('settings-form');
+
+  if (settingsForm) {
+    settingsForm.addEventListener('submit', function (e) {
+      e.preventDefault(); // prevent full page reload
+
+      const formData = new FormData(settingsForm);
+      formData.append('action', 'update_settings');
+
+      console.log("🔄 Submitting bot settings form...");
+      for (let [key, value] of formData.entries()) {
+        console.log(`📨 ${key}: ${value}`);
+      }
+
+      fetch("", {
+        method: "POST",
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+        },
+        body: formData
+      })
+      .then(response => {
+        console.log("✅ Server responded:", response);
+        return response.json();
+      })
+      .then(data => {
+        console.log("📥 Response data:", data);
+        if (data.status === "success") {
+          alert("✅ Settings saved successfully!");
+        } else {
+          alert("⚠️ Failed to save settings: " + data.message);
+        }
+      })
+      .catch(error => {
+        console.error("❌ Error submitting settings form:", error);
+      });
+    });
+  }
+});
+</script>
+
+
+    
+    
 <!-- Optional fallback CSS -->
 <style>
   select option {
