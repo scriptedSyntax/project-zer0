@@ -50,6 +50,7 @@ def dashboard_view(request):
                     return JsonResponse({"status": "success", "message": "Settings saved"})
                 return redirect('dashboard')
             else:
+                print(settings_form.errors) 
                 if is_ajax:
                     return JsonResponse({"status": "error", "message": "Invalid settings data"}, status=400)
                 return redirect('dashboard')
