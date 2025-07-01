@@ -20,4 +20,4 @@ class BotSettingsForm(forms.ModelForm):
                 'do_martingale_after', 'prediction', 'ticks', 'loss_counter', 'tick_result_delay'
             ]
         }
-        widgets['entry_point_symbol'] = forms.TextInput(attrs={'class': 'form-control'})
+        # widgets['entry_point_symbol'] = forms.TextInput(attrs={'class': 'form-control'})
