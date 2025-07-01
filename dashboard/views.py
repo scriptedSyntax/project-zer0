@@ -42,8 +42,9 @@ def dashboard_view(request):
             settings_form = BotSettingsForm(request.POST, instance=settings)
             if settings_form.is_valid():
                 updated_settings = settings_form.save(commit=False)
-                updated_settings.user = request.user  # ✅ Set the user explicitly
+                # updated_settings.user = request.user  # ✅ Set the user explicitly
                 updated_settings.symbol = request.POST.get('symbol', updated_settings.symbol)
+                updated_settings.tick_result_delay = 1  # ✅ Set manually
                 updated_settings.save()
 
                 if is_ajax:
