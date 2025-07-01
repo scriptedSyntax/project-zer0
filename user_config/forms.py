@@ -17,7 +17,7 @@ class BotSettingsForm(forms.ModelForm):
             field: forms.NumberInput(attrs={'class': 'form-control'})
             for field in [
                 'stake', 'martingale', 'take_profit', 'stop_loss',
-                'do_martingale_after', 'prediction', 'ticks', 'loss_counter'
+                'do_martingale_after', 'prediction', 'ticks', 'loss_counter', 'tick_result_delay'
             ]
         }
         widgets['entry_point_symbol'] = forms.TextInput(attrs={'class': 'form-control'})
