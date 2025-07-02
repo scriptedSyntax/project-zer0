@@ -13,6 +13,22 @@ from bot_logic.trade_manager import TradeManager
 logger = logging.getLogger(__name__)
 SAFETY_MARGIN = 0.003  # seconds into each tick to fire the buy
 
+async def cancel_pending_contracts(trade_manager, pending_trades, send_update_callback):
+    """Cancel all pending contracts when bot stops"""
+    if not pending_trades:
+        return
+        
+    logger.info(f"🧹 Cancelling {len(pending_trades)} pending contracts...")
+    await send_update_callback({"message": f"🧹 Cancelling {len(pending_trades)} pending contracts..."})
+    
+    cancel_tasks = []
+    for contract_id in list(pending_trades.keys()):
+        cancel_tasks.append(trade_manager.cancel_contract(contract_id))
+    
+    if cancel_tasks:
+        results = await asyncio.gather(*cancel_tasks, return_exceptions=True)
+        successful_cancels = sum(1 for r in results if r is True)
+        logger.info(f"✅ Successfully cancelled {successful_cancels}/{len(cancel_tasks)} contracts")
 
 def evaluate_prediction(prediction: str, last_digit: int) -> bool:
     logger.debug(f"Evaluating prediction '{prediction}' against last digit '{last_digit}'")
@@ -76,6 +92,8 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
 
     async for tick in get_live_ticks(user.deriv_token, bot_settings.symbol):
         if stop_event.is_set() or not state.running:
+            # Cancel all pending contracts before stopping
+            await cancel_pending_contracts(trade_manager, pending_trades, send_update_callback)
             break
 
         # Stop-loss / Take-profit
@@ -83,10 +101,12 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         if bal is not None:
             if bal <= stop_threshold:
                 state.running = False
+                await cancel_pending_contracts(trade_manager, pending_trades, send_update_callback)
                 await send_update_callback({"message": "🛑 Stop-loss reached. Bot stopped."})
                 break
             if bal >= take_threshold:
                 state.running = False
+                await cancel_pending_contracts(trade_manager, pending_trades, send_update_callback)
                 await send_update_callback({"message": "🎯 Take-profit reached. Bot stopped."})
                 break
 
