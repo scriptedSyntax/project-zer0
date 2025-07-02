@@ -177,7 +177,23 @@ class DerivAPI:
         logger.debug(f"📤 Sending request with req_id={req_id}: {payload}")
         await self.ws.send(json.dumps(payload))
         return await fut
-
+        
+    async def cancel_contract(self, contract_id):
+        """Cancel a specific contract if it's still open"""
+        logger.info(f"🚫 Cancelling contract: {contract_id}")
+        try:
+            resp = await self._send_request({
+                "cancel": contract_id
+            })
+            if "cancel" in resp:
+                logger.info(f"✅ Contract {contract_id} cancelled successfully")
+                return True
+            else:
+                logger.warning(f"⚠️ Cancel response unexpected: {resp}")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Failed to cancel contract {contract_id}: {e}")
+            return False
 
 class TradeManager:
     def __init__(self, token):
