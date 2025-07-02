@@ -216,3 +216,6 @@ class TradeManager:
     async def close(self):
         logger.info("🛑 Closing TradeManager session...")
         await self.api.close()
+    
+    async def cancel_contract(self, contract_id):
+        return await self.api.cancel_contract(contract_id)
