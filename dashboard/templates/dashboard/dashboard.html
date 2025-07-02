@@ -97,11 +97,16 @@
   </div>
 
   <!-- Bot Log -->
-  <div id="bot-log" class="h-100 overflow-y-auto bg-gray-900 text-gray-200 p-3 space-y-2 rounded">
+  <div id="bot-log" class="h-40 overflow-y-auto bg-gray-900 text-gray-200 p-3 space-y-2 rounded">
     <!-- messages will be appended here -->
   </div>
 </div>
 
+<scripts>function scrollToBottom() {
+  const log = document.getElementById("bot-log");
+  log.scrollTop = log.scrollHeight;
+}
+</scripts>
 
 <!-- Bot Settings -->
 <div class="col-md-6 mb-4">
