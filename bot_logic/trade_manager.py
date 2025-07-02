@@ -5,7 +5,7 @@ import json
 import logging
 import websockets
 
-DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=1089"
+DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=84524"
 logger = logging.getLogger(__name__)
 
 class DerivAPI:
