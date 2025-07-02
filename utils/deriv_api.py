@@ -21,7 +21,7 @@ from asgiref.sync import sync_to_async
 # -----------------------------------
 
 # Deriv WebSocket API URL (demo app_id 1089)
-DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=1089"
+DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=84524"
 
 # -----------------------------------
 # Utility Function: Get Account Balance
