@@ -185,7 +185,7 @@
                 <p class="text-hacker-green text-sm mt-1">New Account Registration</p>
             </div>
 
-            <form method="post" class="space-y-4">
+            <form method="post" class="space-y-4" id="registration-form">
                 {% csrf_token %}
                 {% for field in form %}
                     <div class="space-y-2">
@@ -230,5 +230,17 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get the registration form by its ID
+            const registrationForm = document.getElementById('registration-form');
+
+            // Reset the form if it exists
+            if (registrationForm) {
+                registrationForm.reset();
+            }
+        });
+    </script>
 </body>
 </html>
