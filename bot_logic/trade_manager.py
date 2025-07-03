@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import websockets
+from bot_logic.balance_manager import get_balance_manager
 
 DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=84524"
 logger = logging.getLogger(__name__)
@@ -198,11 +199,31 @@ class DerivAPI:
 class TradeManager:
     def __init__(self, token):
         self.api = DerivAPI(token)
+        self.balance_manager = None
         logger.debug("🚀 TradeManager initialized.")
 
     async def connect(self):
         logger.info("🔌 Connecting via TradeManager...")
         await self.api.connect()
+
+        # Set up balance manager
+        self.balance_manager = await get_balance_manager(self.api.token
+        
+    async def get_current_balance(self):
+        """Get current balance through balance manager."""
+        if self.balance_manager:
+            return await self.balance_manager.get_current_balance()
+        return None, None
+        
+    async def subscribe_to_balance(self, callback):
+        """Subscribe to balance updates."""
+        if self.balance_manager:
+            self.balance_manager.subscribe(callback)
+            
+    async def unsubscribe_from_balance(self, callback):
+        """Unsubscribe from balance updates."""
+        if self.balance_manager:
+            self.balance_manager.unsubscribe(callback)
 
     async def propose_contract(self, *args, **kwargs):
         return await self.api.propose_contract(*args, **kwargs)
