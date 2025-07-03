@@ -9,14 +9,279 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Local Bitcoin Favicon -->
     <link rel="icon" href="bitcoin.png" type="image/png">
 
+    <style>
+        /* Global Dark Theme */
+        body {
+            background-color: #1a1a1a; /* Dark background */
+            color: #e0e0e0; /* Light gray text */
+            font-family: 'Consolas', 'Monaco', monospace; /* Hacker-style font */
+            overflow-x: hidden; /* Prevent horizontal scroll from binary */
+        }
 
+        /* Binary Glitch Background */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(0, 255, 0, 0.05),
+                rgba(0, 255, 0, 0.05) 1px,
+                transparent 1px,
+                transparent 5px
+            ),
+            repeating-linear-gradient(
+                -45deg,
+                rgba(0, 255, 0, 0.05),
+                rgba(0, 255, 0, 0.05) 1px,
+                transparent 1px,
+                transparent 5px
+            );
+            background-size: 10px 10px;
+            opacity: 0.2; /* Subtle glitch effect */
+            z-index: -1; /* Behind content */
+            animation: binary-glow 10s infinite alternate; /* Keep this subtle animation */
+        }
+
+        @keyframes binary-glow {
+            from {
+                opacity: 0.15;
+            }
+            to {
+                opacity: 0.25;
+            }
+        }
+
+        /* Money/Cash overlay */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><text x="0" y="8" font-size="10" fill="%2300ff00" opacity="0.1">$</text></svg>');
+            background-repeat: repeat;
+            background-size: 10px 10px;
+            opacity: 0.3; /* Subtle money pattern */
+            z-index: -1; /* Behind content */
+            animation: money-pulse 5s infinite ease-in-out; /* Keep this subtle animation */
+        }
+
+        @keyframes money-pulse {
+            0% {
+                opacity: 0.25;
+            }
+            50% {
+                opacity: 0.35;
+            }
+            100% {
+                opacity: 0.25;
+            }
+        }
+
+        /* Pumpkin/Orange accents */
+        .text-orange-500 { color: #ff7f00 !important; } /* Deeper pumpkin orange */
+        .group-hover\:text-yellow-400:hover { color: #ffa500 !important; } /* Brighter orange on hover */
+
+        /* Green for money/crypto elements */
+        .text-emerald-400 { color: #00e676 !important; } /* Brighter, more vibrant green */
+        .hover\:text-emerald-300:hover { color: #00c853 !important; }
+        .text-green-500 { color: #00e676 !important; }
+        .text-green-400 { color: #00e676 !important; }
+        .bg-green-500 { background-color: #00c853 !important; }
+        .bg-green-600 { background-color: #00b0ff !important; } /* Adjust for a more "tech" blue-green */
+
+        /* Darker card backgrounds */
+        .bg-gray-800, .bg-gray-900 {
+            background-color: #2a2a2a !important; /* Even darker gray */
+        }
+        .border-gray-700 { border-color: #4a4a4a !important; }
+
+        /* General text adjustments for contrast */
+        .text-gray-400 { color: #b0b0b0 !important; }
+        .text-gray-500 { color: #909090 !important; }
+        .text-gray-200 { color: #f0f0f0 !important; }
+        .text-white { color: #f0f0f0 !important; }
+
+        /* Input field styling */
+        .form-control, .form-select {
+            background-color: #333 !important;
+            color: #00e676 !important; /* Green text for inputs */
+            border-color: #555 !important;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #00e676 !important;
+            box-shadow: none !important; /* Removed glow on focus */
+        }
+
+        /* Hacky mono font for data */
+        .font-mono {
+            font-family: 'Consolas', 'Monaco', monospace !important;
+            color: #00ff00; /* Bright green for data values */
+        }
+
+        /* Small text for copyright */
+        footer .text-gray-600 {
+            font-size: 0.7rem; /* Make it tiny */
+            color: #777 !important;
+        }
+
+        /* Hide the default white option background if possible or make it blend */
+        select option.bg-white, select option { /* Target specific class from old code for override */
+            background-color: #333 !important;
+            color: #00e676 !important;
+        }
+
+        /* Specific overrides for button colors */
+        .btn-success {
+            background-color: #00e676 !important; /* Vibrant green */
+            border-color: #00e677 !important;
+            color: #1a1a1a !important; /* Dark text on green */
+        }
+        .btn-danger {
+            background-color: #ff7f00 !important; /* Pumpkin orange for danger */
+            border-color: #ff7f00 !important;
+            color: #f0f0f0 !important;
+        }
+        .btn-info {
+            background-color: #00b0ff !important; /* Tech blue for info */
+            border-color: #00b0ff !important;
+            color: #1a1a1a !important;
+        }
+        .btn-primary {
+            background-color: #ffa500 !important; /* Orange primary for token save */
+            border-color: #ffa500 !important;
+            color: #1a1a1a !important;
+        }
+        .btn-outline-danger {
+            border-color: #ff7f00 !important;
+            color: #ff7f00 !important;
+        }
+        .btn-outline-danger:hover {
+            background-color: #ff7f00 !important;
+            color: #f0f0f0 !important;
+        }
+
+        /* Chart adjustments for dark theme */
+        canvas {
+            background-color: #2a2a2a;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            width: 100% !important; /* Ensure canvas uses full width */
+            height: 300px !important; /* Set a consistent height for the chart */
+            border: 1px solid #4a4a4a; /* Subtle border */
+        }
+
+        /* Analysis feed and bot log */
+        #analysis-feed, #bot-log {
+            background-color: #222 !important; /* Slightly lighter dark for logs */
+            border: 1px solid #444 !important;
+            color: #00e676 !important; /* Green text for logs */
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            height: 19rem; /* Consistent height for both logs */
+            max-height: 19rem;
+            overflow-y: auto;
+        }
+        .text-muted { color: #777 !important; }
+
+        /* Make THE GENESIS title look more glitchy/binary */
+        .font-extrabold {
+            text-shadow: none; /* Removed text-shadow for main title glow */
+        }
+
+        /* Override specific inline styles from original for consistency */
+        #even-percentage, #odd-percentage, #weight-result {
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: #00e676 !important; /* All analysis results green by default */
+            font-weight: 600;
+        }
+        #odd-percentage {
+            color: #ff7f00 !important; /* Make odd count pumpkin */
+        }
+        .text-info { color: #00b0ff !important; } /* Blue for info icon */
+        .text-warning { color: #ff7f00 !important; } /* Orange for warning icon */
+        .text-primary { color: #ffa500 !important; } /* Orange for primary icon */
+
+        /* Tiny text for footer */
+        .text-gray-600.hover\:text-orange-400:hover {
+            color: #ff7f00 !important;
+        }
+
+        /* Balance Section Styles (Adjusted for the provided HTML structure) */
+        .balance-background-glitch {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            opacity: 0.05;
+            background: repeating-linear-gradient(45deg, #00FF00, #00FF00 2px, transparent 2px, transparent 10px), repeating-linear-gradient(-45deg, #00FF00, #00FF00 2px, transparent 2px, transparent 10px);
+            background-size: 15px 15px;
+            animation: none; /* Removed animation */
+        }
+
+        .balance-background-money {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            opacity: 0.03; /* Very subtle */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><g opacity="0.8"><text x="0" y="40" font-size="40" font-family="Arial, sans-serif" fill="%23FFD700">$</text><text x="50" y="80" font-size="40" font-family="Arial, sans-serif" fill="%23FFD700">€</text><path d="M20,20 Q30,0 40,20 Q30,40 20,20 Z" fill="%23DAA520" stroke="%23B8860B" stroke-width="2"/></g></svg>');
+            background-repeat: repeat;
+            background-size: 50px 50px;
+            animation: none; /* Removed animation */
+            filter: none; /* Removed contrast filter */
+        }
+
+        /* Removed or set to none all glitch/neon animations/shadows as per your first snippet's final style */
+        .glitch-text, .glitch-text::before, .glitch-text::after,
+        .neon-glow, .glitch-name,
+        .bi-currency-dollar, .bi-cash-stack {
+            animation: none !important;
+            text-shadow: none !important;
+            box-shadow: none !important;
+        }
+        /* Specific overrides for the badge, it now uses neon-status */
+        .neon-status {
+            animation: none !important; /* Ensure no animation */
+            box-shadow: none !important; /* Ensure no glow */
+            background-color: #ff7f00 !important; /* Pumpkin orange for active badge */
+            color: #1a1a1a !important; /* Dark text on orange */
+            text-shadow: none !important;
+        }
+        .glitch-name {
+            color: #ff7f00 !important; /* Pumpkin orange for xHacker */
+        }
+
+        /* Ensure main balance text is static green and large */
+        .main-balance-static {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 1.8rem; /* Larger for the main balance */
+            color: #00e676; /* Match with other vibrant green elements */
+            font-weight: bold;
+            text-shadow: none; /* Ensure no text-shadow */
+        }
+
+        /* Override for the specific status text in the bot control section */
+        .status-running {
+            color: #00e676 !important; /* Vibrant green for running status */
+            font-weight: bold !important;
+        }
+        .status-stopped {
+            color: #ff7f00 !important; /* Pumpkin orange for stopped status */
+            font-weight: bold !important;
+        }
+
+    </style>
 </head>
 <body class="container py-4">
 
-<!-- Header with pumpkin and branding -->
 <div class="text-center mb-5 relative">
     <div class="flex justify-center items-center gap-4 mb-2">
         <i class="bi bi-currency-dollar text-emerald-400 text-4xl animate-bounce hover:text-emerald-300 transition-all"></i>
@@ -40,278 +305,288 @@
     </div>
 </div>
 
-<!-- Balance Update -->
-<div class="mb-5">
-    <div class="p-4 rounded-xl shadow-lg bg-gradient-to-r from-gray-800 to-gray-900 border border-gray-700">
-        <div class="flex justify-between items-center">
-            <div>
-                <p class="text-gray-400 text-xs uppercase tracking-widest mb-1">CURRENT BALANCE</p>
-                <h3 id="balance-display" class="text-3xl font-bold text-green-400">
-                    {{ balance|default:"N/A" }} 
-                    <small class="text-gray-400">{{ currency }}</small>
-                </h3>
-            </div>
-            <span class="badge rounded-full bg-green-500 animate-pulse px-3 py-1 text-xs">
-                <i class="bi bi-lightning-charge-fill mr-1"></i> LIVE
+<div class="mb-3 bg-gray-800 rounded-xl p-4 border border-gray-700 relative overflow-hidden">
+    <div class="balance-background-glitch"></div>
+    <div class="balance-background-money"></div>
+
+    <div class="relative z-10 flex flex-col items-center justify-center text-center">
+        <p class="text-gray-300 text-xs uppercase tracking-widest mb-2">
+            CURRENT BALANCE
+        </p>
+        <h3 id="balance-display" class="text-5xl font-extrabold text-transparent bg-clip-text main-balance-static">
+            <span class="text-green-400">$</span>{{ balance|default:"0.00" }}
+            <small class="text-gray-400 text-xl font-mono">{{ currency }}</small>
+        </h3>
+        <span class="badge rounded-full bg-orange-600 px-4 py-2 text-sm neon-status no-pulse">
+            <i class="bi bi-cpu-fill mr-1"></i> ACTIVE
+        </span>
+    </div>
+</div>
+
+<p class="text-gray-500 text-center mt-2 text-xs opacity-75 py-2">
+    <i class="bi bi-incognito"></i> by
+    <span class="text-orange-500 font-mono glitch-name">xHacker</span>
+    <i class="bi bi-lock-fill"></i>
+</p>
+
+
+<div class="mb-5 bg-gray-800 rounded-xl p-4 border border-gray-700">
+    <h2 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
+        <i class="bi bi-robot text-blue-400"></i> Bot Control 🎃
+    </h2>
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+        <div>
+            <span class="text-gray-400">Status:</span>
+            <span id="bot-status" class="{{ bot_status_class }} font-mono">
+                {{ bot_status_text }}
             </span>
         </div>
+        <div class="flex gap-2">
+            <button id="start-bot-btn" class="btn btn-success flex items-center gap-1">
+                <i class="bi bi-play-fill"></i> Start
+            </button>
+            <button id="stop-bot-btn" class="btn btn-danger flex items-center gap-1">
+                <i class="bi bi-stop-fill"></i> Stop
+            </button>
+        </div>
     </div>
-    <p class="text-gray-500 text-center mt-2 text-sm">© 2025 <span class="text-orange-500">🎃 xHacks</span></p>
+
+    <div class="flex justify-between items-center bg-gray-900 text-gray-200 p-3 rounded mb-3">
+        <div>
+            <span class="text-gray-400">Profit:</span>
+            <span id="bot-profit" class="font-mono">$0.00</span>
+        </div>
+        <div>
+            <span class="text-gray-400">W/L:</span>
+            <span id="bot-wins" class="text-green-400 font-mono">0</span>
+            <span class="text-gray-400 mx-1">|</span>
+            <span id="bot-losses" class="text-red-400 font-mono">0</span>
+        </div>
+    </div>
+
+    <div id="bot-log" class="overflow-y-auto bg-gray-900 text-gray-200 p-3 space-y-2 rounded">
+        </div>
 </div>
 
-<!-- Bot Control 🎃 -->
-<div class="mb-5 bg-gray-800 rounded-xl p-4 border border-gray-700">
-  <h2 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
-    <i class="bi bi-robot text-blue-400"></i> Bot Control 🎃
-  </h2>
-
-  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-    <div>
-      <span class="text-gray-400">Status:</span>
-      <span id="bot-status" class="{{ bot_status_class }} font-mono">
-        {{ bot_status_text }}
-      </span>
-    </div>
-    <div class="flex gap-2">
-      <button id="start-bot-btn" class="btn btn-success flex items-center gap-1">
-        <i class="bi bi-play-fill"></i> Start
-      </button>
-      <button id="stop-bot-btn" class="btn btn-danger flex items-center gap-1">
-        <i class="bi bi-stop-fill"></i> Stop
-      </button>
-    </div>
-  </div>
-
-  <!-- Summary -->
-  <div class="flex justify-between items-center bg-gray-900 text-gray-200 p-3 rounded mb-3">
-    <div>
-      <span class="text-gray-400">Profit:</span>
-      <span id="bot-profit" class="font-mono">$0.00</span>
-    </div>
-    <div>
-      <span class="text-gray-400">W/L:</span>
-      <span id="bot-wins" class="text-green-400 font-mono">0</span>
-      <span class="text-gray-400 mx-1">|</span>
-      <span id="bot-losses" class="text-red-400 font-mono">0</span>
-    </div>
-  </div>
-
-  <!-- Bot Log -->
-<!--   <div id="bot-log" class="h-76 overflow-y-auto bg-gray-900 text-gray-200 p-3 space-y-2 rounded"> -->
-  <div id="bot-log" style="height: 19rem; max-height: 19rem;" class="overflow-y-auto bg-gray-900 text-gray-200 p-3 space-y-2 rounded">
-    <!-- messages will be appended here -->
-  </div>
-</div>
-
-<scripts>function scrollToBottom() {
-  const log = document.getElementById("bot-log");
-  log.scrollTop = log.scrollHeight;
-}
-</scripts>
-
-<!-- Bot Settings -->
 <div class="col-md-6 mb-4">
-  <div class="card shadow-sm bg-gray-900 text-white border border-gray-700">
-    <div class="card-body">
-      <h5 class="text-xl font-semibold mb-4 flex items-center">
-        <i class="bi bi-gear-fill text-info me-2"></i> Bot Settings
-      </h5>
-      <form method="post" id="settings-form">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_settings">
+    <div class="card shadow-sm bg-gray-900 text-white border border-gray-700">
+        <div class="card-body">
+            <h5 class="text-xl font-semibold mb-4 flex items-center">
+                <i class="bi bi-gear-fill text-info me-2"></i> Bot Settings
+            </h5>
+            <form method="post" id="settings-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_settings">
 
-        <!-- Stake -->
-        <div class="mb-3">
-          {{ settings_form.stake.label_tag }}
-          {{ settings_form.stake }}
+                <div class="mb-3">
+                    {{ settings_form.stake.label_tag }}
+                    {{ settings_form.stake }}
+                </div>
+
+                <div class="mb-3">
+                    {{ settings_form.martingale.label_tag }}
+                    {{ settings_form.martingale }}
+                </div>
+
+                <div class="mb-3">
+                    {{ settings_form.take_profit.label_tag }}
+                    {{ settings_form.take_profit }}
+                </div>
+
+                <div class="mb-3">
+                    {{ settings_form.stop_loss.label_tag }}
+                    {{ settings_form.stop_loss }}
+                </div>
+
+                <div class="mb-3">
+                    {{ settings_form.do_martingale_after.label_tag }}
+                    {{ settings_form.do_martingale_after }}
+                </div>
+
+                <div class="mb-3">
+                    <label for="prediction" class="form-label text-gray-300">
+                        <i class="bi bi-shuffle me-1 text-warning"></i> Prediction:
+                    </label>
+                    <select id="prediction" name="prediction"
+                        class="form-control bg-gray-800 text-white border-gray-700 dark:bg-gray-800 dark:text-white">
+                        <option class="bg-white text-black" value="DIGITEVEN" {% if settings_form.instance.prediction == 'DIGITEVEN' %}selected{% endif %}>Even</option>
+                        <option class="bg-white text-black" value="DIGITODD" {% if settings_form.instance.prediction == 'DIGITODD' %}selected{% endif %}>Odd</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    {{ settings_form.ticks.label_tag }}
+                    {{ settings_form.ticks }}
+                </div>
+
+                <div class="mb-3">
+                    {{ settings_form.loss_counter.label_tag }}
+                    {{ settings_form.loss_counter }}
+                </div>
+
+                <div class="mb-3">
+                    <label for="symbol-select" class="form-label text-gray-300">
+                        <i class="bi bi-diagram-3-fill me-1 text-primary"></i> Symbol:
+                    </label>
+                    <select id="symbol-select" name="symbol"
+                        class="form-control bg-gray-800 text-white border-gray-700 dark:bg-gray-800 dark:text-white">
+                        <optgroup label="Volatility Indices">
+                            <option value="1HZ10V" {% if settings_form.instance.symbol == "1HZ10V" %}selected{% endif %}>Volatility 10 (1s) Index</option>
+                            <option value="R_10" {% if settings_form.instance.symbol == "R_10" %}selected{% endif %}>Volatility 10 Index</option>
+                            <option value="1HZ25V" {% if settings_form.instance.symbol == "1HZ25V" %}selected{% endif %}>Volatility 25 (1s) Index</option>
+                            <option value="R_25" {% if settings_form.instance.symbol == "R_25" %}selected{% endif %}>Volatility 25 Index</option>
+                            <option value="1HZ50V" {% if settings_form.instance.symbol == "1HZ50V" %}selected{% endif %}>Volatility 50 (1s) Index</option>
+                            <option value="R_50" {% if settings_form.instance.symbol == "R_50" %}selected{% endif %}>Volatility 50 Index</option>
+                            <option value="1HZ75V" {% if settings_form.instance.symbol == "1HZ75V" %}selected{% endif %}>Volatility 75 (1s) Index</option>
+                            <option value="R_75" {% if settings_form.instance.symbol == "R_75" %}selected{% endif %}>Volatility 75 Index</option>
+                            <option value="1HZ100V" {% if settings_form.instance.symbol == "1HZ100V" %}selected{% endif %}>Volatility 100 (1s) Index</option>
+                            <option value="R_100" {% if settings_form.instance.symbol == "R_100" %}selected{% endif %}>Volatility 100 Index</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    {{ settings_form.tick_result_delay.label_tag }}
+                    {{ settings_form.tick_result_delay }}
+                </div>
+
+                <button class="btn btn-info w-100 mt-3" type="submit">
+                    <i class="bi bi-save-fill me-1"></i> Update Settings
+                </button>
+            </form>
         </div>
-
-        <!-- Martingale -->
-        <div class="mb-3">
-          {{ settings_form.martingale.label_tag }}
-          {{ settings_form.martingale }}
-        </div>
-
-        <!-- Take Profit -->
-        <div class="mb-3">
-          {{ settings_form.take_profit.label_tag }}
-          {{ settings_form.take_profit }}
-        </div>
-
-        <!-- Stop Loss -->
-        <div class="mb-3">
-          {{ settings_form.stop_loss.label_tag }}
-          {{ settings_form.stop_loss }}
-        </div>
-
-        <!-- Martingale After -->
-        <div class="mb-3">
-          {{ settings_form.do_martingale_after.label_tag }}
-          {{ settings_form.do_martingale_after }}
-        </div>
-
-        <!-- Prediction -->
-        <div class="mb-3">
-          <label for="prediction" class="form-label text-gray-300">
-            <i class="bi bi-shuffle me-1 text-warning"></i> Prediction:
-          </label>
-          <select id="prediction" name="prediction"
-            class="form-control bg-gray-800 text-white border-gray-700 dark:bg-gray-800 dark:text-white">
-            <option class="bg-white text-black" value="DIGITEVEN" {% if settings_form.instance.prediction == 'DIGITEVEN' %}selected{% endif %}>Even</option>
-            <option class="bg-white text-black" value="DIGITODD" {% if settings_form.instance.prediction == 'DIGITODD' %}selected{% endif %}>Odd</option>
-          </select>
-        </div>
-
-        <!-- Ticks -->
-        <div class="mb-3">
-          {{ settings_form.ticks.label_tag }}
-          {{ settings_form.ticks }}
-        </div>
-
-        <!-- Loss Counter -->
-        <div class="mb-3">
-          {{ settings_form.loss_counter.label_tag }}
-          {{ settings_form.loss_counter }}
-        </div>
-
-        <!-- Symbol Select -->
-        <div class="mb-3">
-          <label for="symbol-select" class="form-label text-gray-300">
-            <i class="bi bi-diagram-3-fill me-1 text-primary"></i> Symbol:
-          </label>
-          <select id="symbol-select" name="symbol"
-            class="form-control bg-gray-800 text-white border-gray-700 dark:bg-gray-800 dark:text-white">
-            <optgroup label="Volatility Indices" class="bg-white text-black">
-              <option value="R_100" {% if settings_form.instance.symbol == "R_100" %}selected{% endif %}>Volatility 100 Index</option>
-              <option value="1HZ100V" {% if settings_form.instance.symbol == "1HZ100V" %}selected{% endif %}>Volatility 100 (1s) Index</option>
-              <option value="1HZ10V" {% if settings_form.instance.symbol == "1HZ10V" %}selected{% endif %}>Volatility 10 (1s) Index</option>
-              <option value="R_10" {% if settings_form.instance.symbol == "R_10" %}selected{% endif %}>Volatility 10 Index</option>
-              <option value="R_50" {% if settings_form.instance.symbol == "R_50" %}selected{% endif %}>Volatility 50 Index</option>
-              <option value="1HZ25V" {% if settings_form.instance.symbol == "1HZ25V" %}selected{% endif %}>Volatility 25 (1s) Index</option>
-              <option value="1HZ75V" {% if settings_form.instance.symbol == "1HZ75V" %}selected{% endif %}>Volatility 75 (1s) Index</option>
-              <option value="R_25" {% if settings_form.instance.symbol == "R_25" %}selected{% endif %}>Volatility 25 Index</option>
-              <option value="R_75" {% if settings_form.instance.symbol == "R_75" %}selected{% endif %}>Volatility 75 Index</option>
-              <option value="1HZ50V" {% if settings_form.instance.symbol == "1HZ50V" %}selected{% endif %}>Volatility 50 (1s) Index</option>
-            </optgroup>
-          </select>
-        </div>
-          <!-- Tick Result Delay -->
-        <div class="mb-3">
-          {{ settings_form.tick_result_delay.label_tag }}
-          {{ settings_form.tick_result_delay }}
-        </div>
-
-
-        <!-- Submit Button -->
-        <button class="btn btn-info w-100 mt-3" type="submit">
-          <i class="bi bi-save-fill me-1"></i> Update Settings
-        </button>
-      </form>
     </div>
-  </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const settingsForm = document.getElementById('settings-form');
+    const settingsForm = document.getElementById('settings-form');
 
-  if (settingsForm) {
-    settingsForm.addEventListener('submit', function (e) {
-      e.preventDefault(); // prevent full page reload
+    if (settingsForm) {
+        settingsForm.addEventListener('submit', function (e) {
+            e.preventDefault(); // prevent full page reload
 
-      const formData = new FormData(settingsForm);
-      formData.append('action', 'update_settings');
+            const formData = new FormData(settingsForm);
+            formData.append('action', 'update_settings');
 
-      console.log("🔄 Submitting bot settings form...");
-      for (let [key, value] of formData.entries()) {
-        console.log(`📨 ${key}: ${value}`);
-      }
+            console.log("🔄 Submitting bot settings form...");
+            for (let [key, value] of formData.entries()) {
+                console.log(`📨 ${key}: ${value}`);
+            }
 
-      fetch("", {
-        method: "POST",
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
-        },
-        body: formData
-      })
-      .then(response => {
-        console.log("✅ Server responded:", response);
-        return response.json();
-      })
-      .then(data => {
-        console.log("📥 Response data:", data);
-        if (data.status === "success") {
-          alert("✅ Settings saved successfully!");
-        } else {
-          alert("⚠️ Failed to save settings: " + data.message);
+            fetch("", {
+                method: "POST",
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                },
+                body: formData
+            })
+            .then(response => {
+                console.log("✅ Server responded:", response);
+                return response.json();
+            })
+            .then(data => {
+                console.log("📥 Response data:", data);
+                if (data.status === "success") {
+                    alert("✅ Settings saved successfully!");
+                } else {
+                    alert("⚠️ Failed to save settings: " + data.message);
+                }
+            })
+            .catch(error => {
+                console.error("❌ Error submitting settings form:", error);
+            });
+        });
+    }
+
+    // Existing functions from your second snippet (place your analysis JS here)
+    function scrollToBottom() {
+        const log = document.getElementById("bot-log");
+        if (log) {
+            log.scrollTop = log.scrollHeight;
         }
-      })
-      .catch(error => {
-        console.error("❌ Error submitting settings form:", error);
-      });
-    });
-  }
+    }
+    // You would integrate your WebSocket and Chart.js logic here
+    // Example:
+    // const startAnalysisBtn = document.getElementById('start-analysis-btn');
+    // if (startAnalysisBtn) {
+    //     startAnalysisBtn.addEventListener('click', function() {
+    //         // Your WebSocket start logic
+    //         console.log("Starting analysis...");
+    //         // Update UI
+    //         document.getElementById('analysis-feed').innerHTML = '<p class="text-muted mb-0">Analysis started...</p>';
+    //     });
+    // }
+
+    // Similarly for stop-analysis-btn, and your Chart.js initialization and updates
+    // For Chart.js, remember to configure the chart options as discussed previously
+    // Example:
+    // const ctx = document.getElementById('evenOddChart').getContext('2d');
+    // const evenOddChart = new Chart(ctx, { /* Chart config here */ });
+
+    // For the token form (assuming similar fetch logic to settings form)
+    const tokenForm = document.getElementById('token-form');
+    if (tokenForm) {
+        tokenForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(tokenForm);
+            formData.append('action', 'update_token'); // Ensure action is correct for your backend
+
+            fetch("", {
+                method: "POST",
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const tokenSuccessDiv = document.getElementById('token-success');
+                if (data.status === "success") {
+                    if (tokenSuccessDiv) {
+                        tokenSuccessDiv.classList.remove('d-none');
+                        setTimeout(() => tokenSuccessDiv.classList.add('d-none'), 3000);
+                    }
+                    alert("✅ Token updated successfully!");
+                } else {
+                    alert("⚠️ Failed to update token: " + (data.message || "Unknown error."));
+                }
+            })
+            .catch(error => {
+                console.error("❌ Error submitting token form:", error);
+                alert("An error occurred while updating the token.");
+            });
+        });
+    }
+
 });
 </script>
 
 
-    
-    
-<!-- Optional fallback CSS -->
-<style>
-  select option {
-    background-color: #ffffff;
-    color: #000000;
-  }
-</style>
-
-<!-- Optional: Inline style tweaks or place in your stylesheet -->
-<style>
-    #even-percentage {
-        color: #198754; /* Bootstrap green */
-        font-weight: 600;
-    }
-
-    #odd-percentage {
-        color: #dc3545; /* Bootstrap red */
-        font-weight: 600;
-    }
-
-    #analysis-feed {
-        background-color: #f8f9fa; /* Light gray */
-        color: #212529; /* Dark text */
-    }
-
-    #weight-result {
-        color: #0d6efd; /* Bootstrap primary blue */
-        font-weight: bold;
-    }
-</style>
-
-<!-- Analysis Section -->
 <div class="mb-4">
-    <h3>Real-time Even/Odd Analysis</h3>
+    <h3 class="text-white">Real-time Even/Odd Analysis</h3>
 
     <div class="mb-2">
-        <label for="analysis-symbol-select">Select Symbol:</label>
+        <label for="analysis-symbol-select" class="text-gray-300">Select Symbol:</label>
         <select id="analysis-symbol-select" class="form-control">
             <optgroup label="Volatility Indices">
-                <option value="R_100">Volatility 100 Index</option>
-                <option value="1HZ100V">Volatility 100 (1s) Index</option>
                 <option value="1HZ10V">Volatility 10 (1s) Index</option>
                 <option value="R_10">Volatility 10 Index</option>
-                <option value="R_50">Volatility 50 Index</option>
                 <option value="1HZ25V">Volatility 25 (1s) Index</option>
-                <option value="1HZ75V">Volatility 75 (1s) Index</option>
                 <option value="R_25">Volatility 25 Index</option>
-                <option value="R_75">Volatility 75 Index</option>
                 <option value="1HZ50V">Volatility 50 (1s) Index</option>
+                <option value="R_50">Volatility 50 Index</option>
+                <option value="1HZ75V">Volatility 75 (1s) Index</option>
+                <option value="R_75">Volatility 75 Index</option>
+                <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                <option value="R_100">Volatility 100 Index</option>
             </optgroup>
         </select>
     </div>
     <div class="mb-2">
-        <label for="last-x-ticks" class="form-label">Number of last X ticks:</label>
+        <label for="last-x-ticks" class="form-label text-gray-300">Number of last X ticks:</label>
         <input type="number" id="last-x-ticks" class="form-control" value="120" min="10" max="500" step="10">
     </div>
 
@@ -329,15 +604,14 @@ document.addEventListener('DOMContentLoaded', function () {
         <span id="odd-percentage">Odd: --%</span>
     </div>
 
-    <canvas id="evenOddChart" height="400" class="mt-4 w-100"></canvas>
+    <canvas id="evenOddChart" class="mt-4 w-75"></canvas>
 
     <div id="weight-analysis" class="mt-3 text-center">
-        <h5>Weight Analysis</h5>
+        <h5 class="text-white">Weight Analysis</h5>
         <p id="weight-result">Awaiting data...</p>
     </div>
 </div>
 
-<!-- Update API Token -->
 <div class="col-md-6 mb-4">
     <div class="card shadow-sm bg-gray-900 text-white border-0">
         <div class="card-body">
@@ -358,31 +632,6 @@ document.addEventListener('DOMContentLoaded', function () {
         </div>
     </div>
 </div>
-
-
-<style>
-    .text-gradient {
-        background: linear-gradient(90deg, #3b82f6, #10b981);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    .status-running { color: green; font-weight: bold; }
-    .status-stopped { color: red; font-weight: bold; }
-    #bot-stats {
-        font-family: monospace;
-    }
-    #trade-history {
-        height: 300px;
-        overflow-y: auto;
-        font-family: monospace;
-        background: #f9f9f9;
-    }
-#analysis-feed {
-    height: 300px;
-    overflow-y: auto;
-}
-</style>
 
 <!--
     Bot WebSocket and Analysis Script
@@ -923,3 +1172,4 @@ document.addEventListener('DOMContentLoaded', function () {
 </footer>
 </body>
 </html>
+
