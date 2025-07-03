@@ -127,12 +127,12 @@ async def _on_balance_update(self, balance_data):
    """Handle balance updates."""
    self.last_balance = balance_data["balance"]
         
-    def cleanup_balance_monitoring(self):
-       """
-       Clean up balance monitoring.
-       """
-       if hasattr(self, 'balance_manager'):
-           self.balance_manager.unsubscribe(self._on_balance_update)
+def cleanup_balance_monitoring(self):
+   """
+   Clean up balance monitoring.
+   """
+   if hasattr(self, 'balance_manager'):
+       self.balance_manager.unsubscribe(self._on_balance_update)
 
 # Helper to check if bot is running
 
