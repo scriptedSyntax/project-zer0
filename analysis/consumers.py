@@ -12,6 +12,8 @@ from utils.deriv_api import get_account_balance
 from .tick_streamer import LiveTickStreamer
 from bot_logic.state_manager import is_bot_running
 from bot_logic.bot_core import run_bot_for_user
+from bot_logic.balance_manager import get_balance_manager
+
 
 class AnalysisConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
@@ -22,57 +24,90 @@ class AnalysisConsumer(AsyncWebsocketConsumer):
         self.bot_task = None
         self.bot_stop_event = None
 
-    async def connect(self):
-        self.user = self.scope["user"]
-        if not self.user.is_authenticated:
-            await self.close()
-            return
-
     # async def connect(self):
     #     self.user = self.scope["user"]
     #     if not self.user.is_authenticated:
     #         await self.close()
     #         return
 
-    #     self.tick_streamer = None
-    #     self.balance_task = None
-    #     self.bot_task = None
-    #     self.bot_stop_event = None
+    #     await self.accept()
+    #     await self.send(json.dumps({"message": "WebSocket connected to analysis"}))
 
+    #     # ✅ Request balance once on connect
+    #     try:
+    #         user_profile = await sync_to_async(UserProfile.objects.get)(user=self.user)
+    #         token = user_profile.deriv_token
+    #         balance, currency = await get_account_balance(token)
+    #         await self.send(json.dumps({
+    #             "type": "balance_update",
+    #             "balance": balance,
+    #             "currency": currency
+    #         }))
+    #     except Exception as e:
+    #         print(f"[Balance Fetch on Connect] Error: {e}")
+
+    #     # ✅ If bot already running, start live balance loop
+    #     try:
+    #         if is_bot_running(self.user.id):
+    #             print("[Balance] Bot already running. Starting balance loop.")
+    #             self.balance_task = asyncio.create_task(self.send_balance_loop())
+    #     except Exception as e:
+    #         print(f"[Balance Check Error] {e}")
+
+     # Replace the connect method:
+     async def connect(self):
+        self.user = self.scope["user"]
+        if not self.user.is_authenticated:
+            await self.close()
+            return
         await self.accept()
         await self.send(json.dumps({"message": "WebSocket connected to analysis"}))
-
-        # ✅ Request balance once on connect
+        # Set up balance manager
         try:
             user_profile = await sync_to_async(UserProfile.objects.get)(user=self.user)
-            token = user_profile.deriv_token
-            balance, currency = await get_account_balance(token)
-            await self.send(json.dumps({
-                "type": "balance_update",
-                "balance": balance,
-                "currency": currency
-            }))
+            self.balance_manager = await get_balance_manager(user_profile.deriv_token)
+            self.balance_manager.subscribe(self._on_balance_update)
+            
+            # Get initial balance
+            balance, currency = await self.balance_manager.get_current_balance()
+            if balance is not None:
+                await self.send(json.dumps({
+                    "type": "balance_update",
+                    "balance": balance,
+                    "currency": currency
+                }))
         except Exception as e:
-            print(f"[Balance Fetch on Connect] Error: {e}")
+            print(f"[Balance Setup Error] {e}")
 
-        # ✅ If bot already running, start live balance loop
-        try:
-            if is_bot_running(self.user.id):
-                print("[Balance] Bot already running. Starting balance loop.")
-                self.balance_task = asyncio.create_task(self.send_balance_loop())
-        except Exception as e:
-            print(f"[Balance Check Error] {e}")
 
+     # Add this method:
+     async def _on_balance_update(self, balance_data):
+        """Handle balance updates from the balance manager."""
+        await self.send(json.dumps({
+            "type": "balance_update",
+            "balance": balance_data["balance"],
+            "currency": balance_data["currency"]
+        }))
+         
+    # async def disconnect(self, close_code):
+    #     if self.tick_streamer:
+    #         await self.tick_streamer.stop()
+
+    #     if self.balance_task:
+    #         self.balance_task.cancel()
+    #         try:
+    #             await self.balance_task
+    #         except asyncio.CancelledError:
+    #             print("[Balance Loop] Cancelled on disconnect")
+
+    # Update disconnect method:
     async def disconnect(self, close_code):
         if self.tick_streamer:
             await self.tick_streamer.stop()
-
-        if self.balance_task:
-            self.balance_task.cancel()
-            try:
-                await self.balance_task
-            except asyncio.CancelledError:
-                print("[Balance Loop] Cancelled on disconnect")
+        # Unsubscribe from balance updates
+        if hasattr(self, 'balance_manager'):
+    self.balance_manager.unsubscribe(self._on_balance_update)
+     # Remove the balance_task cancellation code - it's no longer needed
 
         if self.bot_task:
             self.bot_stop_event.set()
