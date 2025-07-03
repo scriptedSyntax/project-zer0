@@ -9,6 +9,7 @@ from analysis.utils import get_live_ticks
 from utils.deriv_api import get_account_balance
 from bot_logic.state_manager import user_bot_states, BotState
 from bot_logic.trade_manager import TradeManager
+from bot_logic.balance_manager import get_balance_manager
 
 logger = logging.getLogger(__name__)
 SAFETY_MARGIN = 0.003  # seconds into each tick to fire the buy
@@ -74,18 +75,35 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
                    f"with base stake {bot_settings.stake}"
     })
 
-    balance, _ = await get_account_balance(user.deriv_token)
-    stop_threshold = balance - bot_settings.stop_loss
-    take_threshold = balance + bot_settings.take_profit
-
+    # Set up balance manager
+    balance_manager = await get_balance_manager(user.deriv_token)
+    current_balance, _ = await balance_manager.get_current_balance()
+    
+    stop_threshold = current_balance - bot_settings.stop_loss
+    take_threshold = current_balance + bot_settings.take_profit
+    
+    # Balance monitoring callback
+    async def check_balance_limits(balance_data):
+        nonlocal stop_event
+        balance = balance_data["balance"]
+        
+        if balance <= stop_threshold:
+            stop_event.set()
+            await send_update_callback({"message": "🛑 Stop-loss reached. Bot stopped."})
+        elif balance >= take_threshold:
+            stop_event.set()
+            await send_update_callback({"message": "🎯 Take-profit reached. Bot stopped."})
+    
+    # Subscribe to balance updates
+    balance_manager.subscribe(check_balance_limits)
+    
     state = BotState(user_id=user_id)
     state.init_martingale(bot_settings)
-    state.last_balance = balance
+    state.last_balance = current_balance
     user_bot_states[user_id] = state
 
     trade_manager = TradeManager(user.deriv_token)
     await trade_manager.connect()
-    trade_manager.api.subscribe_balance(lambda b: setattr(state, 'last_balance', b))
 
     pending_trades = {}
     evaluation_tick_delay = getattr(bot_settings, 'tick_result_delay', 1)  # <-- renamed from offset
@@ -95,20 +113,6 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
             # Cancel all pending contracts before stopping
             await cancel_pending_contracts(trade_manager, pending_trades, send_update_callback)
             break
-
-        # Stop-loss / Take-profit
-        bal = state.last_balance
-        if bal is not None:
-            if bal <= stop_threshold:
-                state.running = False
-                await cancel_pending_contracts(trade_manager, pending_trades, send_update_callback)
-                await send_update_callback({"message": "🛑 Stop-loss reached. Bot stopped."})
-                break
-            if bal >= take_threshold:
-                state.running = False
-                await cancel_pending_contracts(trade_manager, pending_trades, send_update_callback)
-                await send_update_callback({"message": "🎯 Take-profit reached. Bot stopped."})
-                break
 
         await send_update_callback({"type": "tick", "epoch": tick.get("epoch")})
 
@@ -178,7 +182,7 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         state.awaiting_result = True  # ✅ Block further trades until result is processed
 
     # Cleanup
+    balance_manager.unsubscribe(check_balance_limits)
     await asyncio.to_thread(BotStatus.objects.filter(user_id=user_id).update, is_running=False)
     state.running = False
     await send_update_callback({"message": "✅ Bot finished."})
-
