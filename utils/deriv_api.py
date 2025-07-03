@@ -16,7 +16,7 @@ from user_config.models import UserProfile
 # from utils.deriv_api import get_account_balance
 from asgiref.sync import sync_to_async
 
- from bot_logic.balance_manager import get_balance_manager
+from bot_logic.balance_manager import get_balance_manager
 
 # -----------------------------------
 # Global Constants
