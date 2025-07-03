@@ -207,7 +207,7 @@ class TradeManager:
         await self.api.connect()
 
         # Set up balance manager
-        self.balance_manager = await get_balance_manager(self.api.token
+        self.balance_manager = await get_balance_manager(self.api.token)
         
     async def get_current_balance(self):
         """Get current balance through balance manager."""
