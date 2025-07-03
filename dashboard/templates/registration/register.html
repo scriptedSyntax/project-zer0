@@ -191,8 +191,7 @@
                     <div class="space-y-2">
                         {{ field.label_tag }}
                         {{ field }}
-                            <p class="text-gray-500 text-xs">{{ field.help_text }}</p>
-                        {% endif %} #}
+                        {# The 'help_text' section, which contains password policy details, has been removed from here. #}
                         {% if field.errors %}
                             <ul class="errorlist">
                                 {% for error in field.errors %}
