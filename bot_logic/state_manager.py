@@ -110,6 +110,30 @@ class BotState:
         """
         pass  # If you later add attributes like self.last_profit, reset them here
 
+     # Add this method to BotState class:
+     async def setup_balance_monitoring(self, token: str):
+        """
+        Set up balance monitoring for this bot state.
+        """
+        self.balance_manager = await get_balance_manager(token)
+        self.balance_manager.subscribe(self._on_balance_update)
+        
+        # Get initial balance
+        balance, currency = await self.balance_manager.get_current_balance()
+        if balance is not None:
+            self.last_balance = balance
+            
+     async def _on_balance_update(self, balance_data):
+        """Handle balance updates."""
+        self.last_balance = balance_data["balance"]
+         
+     def cleanup_balance_monitoring(self):
+        """
+        Clean up balance monitoring.
+        """
+        if hasattr(self, 'balance_manager'):
+            self.balance_manager.unsubscribe(self._on_balance_update)
+
 # Helper to check if bot is running
 
 def is_bot_running(user_id: int) -> bool:
