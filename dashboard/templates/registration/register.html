@@ -191,9 +191,9 @@
                     <div class="space-y-2">
                         {{ field.label_tag }}
                         {{ field }}
-                        {% if field.help_text %}
+                        {# REMOVED: {% if field.help_text %}
                             <p class="text-gray-500 text-xs">{{ field.help_text }}</p>
-                        {% endif %}
+                        {% endif %} #}
                         {% if field.errors %}
                             <ul class="errorlist">
                                 {% for error in field.errors %}
