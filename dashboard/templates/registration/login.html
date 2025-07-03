@@ -23,7 +23,7 @@
             --border-color: #4a4a4a;
         }
 
-        /* Extend Tailwind with custom animations */
+        /* Extend Tailwind with custom animations (if any for login page) */
         .animate-pulse-slow { animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         .animate-float { animation: float 3s ease-in-out infinite; }
 
@@ -53,22 +53,65 @@
             background-image: linear-gradient(to right, var(--hacker-green), var(--money-gold));
         }
 
+        /* Styling for Django form fields */
         input[type="text"],
+        input[type="email"],
         input[type="password"] {
             background-color: #333 !important;
             color: var(--hacker-green) !important;
             border-color: var(--hacker-green) !important;
             padding: 0.75rem 1rem; /* Adjust padding for consistency */
+            width: 100%;
+            border-radius: 0.375rem; /* rounded-md from Tailwind */
+            transition: all 0.2s ease-in-out;
         }
         input[type="text"]:focus,
+        input[type="email"]:focus,
         input[type="password"]:focus {
             outline: none !important;
             box-shadow: 0 0 0 2px var(--hacker-green) !important;
         }
 
-        button[type="submit"] {
-            color: black !important; /* Ensure text is black on gradient button */
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--hacker-green);
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 500; /* font-medium */
         }
+
+        .errorlist {
+            color: #ff4d4d; /* Red for errors */
+            list-style: none;
+            padding: 0;
+            margin-top: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        /* Styling for Django form's <p> wrappers if form.as_p is used */
+        form.space-y-4 > p {
+            margin-bottom: 1rem; /* Space between form fields */
+        }
+        form.space-y-4 > p label {
+            margin-bottom: 0.5rem; /* Space between label and input */
+        }
+
+        button[type="submit"].btn-primary {
+            background-color: var(--hacker-green) !important;
+            border-color: var(--hacker-green) !important;
+            color: black !important;
+            font-weight: bold;
+            padding: 0.75rem 1.5rem;
+            width: 100%;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease-in-out;
+            transform: scale(1);
+        }
+        button[type="submit"].btn-primary:hover {
+            opacity: 0.9;
+            transform: scale(1.02);
+        }
+
 
         /* Binary glitch overlay */
         body::before {
@@ -133,17 +176,37 @@
         <div class="p-6">
             <div class="flex flex-col items-center mb-6">
                 <div class="relative">
-                    <i class="bi bi-currency-bitcoin text-money-gold text-5xl animate-float"></i>
-                    <i class="bi bi-p-circle-fill text-orange-500 text-7xl absolute -top-2 -left-2 animate-pulse-slow"></i>
+                    <i class="bi bi-box-arrow-in-right text-hacker-green text-5xl animate-float"></i>
+                    <i class="bi bi-shield-fill-check text-money-gold text-7xl absolute -top-2 -left-2 animate-pulse-slow"></i>
                 </div>
                 <h1 class="text-2xl font-bold mt-4 text-transparent bg-clip-text bg-gradient-to-r from-hacker-green to-money-gold">
                     THE GENESIS
                 </h1>
-                <p class="text-hacker-green text-sm mt-1">Secure Login Portal</p>
+                <p class="text-hacker-green text-sm mt-1">Account Login</p>
             </div>
 
+            {# This is where your Django login form would be rendered #}
+            {# Example structure (adapt to your actual form rendering) #}
             <form method="post" class="space-y-4" id="login-form">
                 {% csrf_token %}
+                {% comment %}
+                    Assuming your form renders fields like this.
+                    Adjust `form.username` and `form.password` to match your actual form's field names.
+                {% endcomment %}
+
+                <div class="space-y-2">
+                    <label for="id_username" class="form-label">Username:</label>
+                    <input type="text" name="username" id="id_username" class="form-control" placeholder="Enter your username" required>
+                    {# Add {{ form.username.errors }} here if your Django form uses default rendering #}
+                </div>
+
+                <div class="space-y-2">
+                    <label for="id_password" class="form-label">Password:</label>
+                    <input type="password" name="password" id="id_password" class="form-control" placeholder="Enter your password" required>
+                    {# Add {{ form.password.errors }} here if your Django form uses default rendering #}
+                </div>
+
+                {# Display non-field errors (e.g., "Invalid credentials") #}
                 {% if form.non_field_errors %}
                     <div class="alert alert-danger" role="alert">
                         {% for error in form.non_field_errors %}
@@ -151,20 +214,9 @@
                         {% endfor %}
                     </div>
                 {% endif %}
-                <div class="space-y-2">
-                    <label class="block text-hacker-green text-sm font-medium" for="id_username">Username</label>
-                    <input type="text" name="username" id="id_username" required
-                        class="w-full px-4 py-2 bg-gray-800 border border-hacker-green rounded-md focus:outline-none focus:ring-2 focus:ring-hacker-green transition-all">
-                </div>
-                <div class="space-y-2">
-                    <label class="block text-hacker-green text-sm font-medium" for="id_password">Password</label>
-                    <input type="password" name="password" id="id_password" required
-                        class="w-full px-4 py-2 bg-gray-800 border border-hacker-green rounded-md focus:outline-none focus:ring-2 focus:ring-hacker-green transition-all">
-                </div>
-                <button type="submit" id="login-button"
-                    class="w-full py-2 px-4 bg-gradient-to-r from-hacker-green to-money-gold text-black font-bold rounded-md hover:opacity-90 transition-all transform hover:scale-105 flex items-center justify-center">
-                    <span id="button-text"><i class="bi bi-lock-fill mr-2"></i> Login</span>
-                    <span id="loading-spinner" class="spinner-border spinner-border-sm text-black ml-2 d-none" role="status" aria-hidden="true"></span>
+
+                <button type="submit" class="btn btn-primary mt-4">
+                    <i class="bi bi-box-arrow-in-right mr-2"></i> Login
                 </button>
             </form>
 
@@ -185,21 +237,12 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Get the login form by its ID
             const loginForm = document.getElementById('login-form');
-            const loginButton = document.getElementById('login-button');
-            const buttonText = document.getElementById('button-text');
-            const loadingSpinner = document.getElementById('loading-spinner');
 
+            // Reset the form if it exists
             if (loginForm) {
-                loginForm.addEventListener('submit', function() {
-                    // Show loading state immediately on submit
-                    loginButton.disabled = true;
-                    buttonText.classList.add('d-none');
-                    loadingSpinner.classList.remove('d-none');
-
-                    // No e.preventDefault() here, allowing Django's default form submission
-                    // The loading state will be visible until the page redirects.
-                });
+                loginForm.reset();
             }
         });
     </script>
