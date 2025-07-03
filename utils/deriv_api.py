@@ -57,13 +57,13 @@ DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=84524"
 
 #         return balance, currency
 
- # Replace the existing function:
- async def get_account_balance(token):
-    """
-    Get account balance using the centralized balance manager.
-    Returns: (balance, currency)
-    """
-    return await _get_account_balance(token)
+# Replace the existing function:
+async def get_account_balance(token):
+   """
+   Get account balance using the centralized balance manager.
+   Returns: (balance, currency)
+   """
+   return await _get_account_balance(token)
 
 class DerivAPI:
     """
