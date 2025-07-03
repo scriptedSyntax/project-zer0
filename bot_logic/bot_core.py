@@ -132,8 +132,15 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
                     state.reset_on_win(bot_settings.stake)
                 else:
                     state.record_loss()
+                    
+                    # if state.should_martingale(bot_settings.do_martingale_after):
+                    #     next_stake = state.get_next_martingale_stake()
+                    #     state.enqueue_stake(next_stake)
+
                     if state.should_martingale(bot_settings.do_martingale_after):
-                        next_stake = state.get_next_martingale_stake()
+                        # Calculate correct martingale level
+                        martingale_level = state.loss_counter - bot_settings.do_martingale_after
+                        next_stake = state.martingale_sequence[min(martingale_level, len(state.martingale_sequence) - 1)]
                         state.enqueue_stake(next_stake)
                     else:
                         state.enqueue_stake(bot_settings.stake)
