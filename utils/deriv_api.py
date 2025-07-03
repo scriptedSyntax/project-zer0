@@ -16,6 +16,8 @@ from user_config.models import UserProfile
 # from utils.deriv_api import get_account_balance
 from asgiref.sync import sync_to_async
 
+ from bot_logic.balance_manager import get_balance_manager
+
 # -----------------------------------
 # Global Constants
 # -----------------------------------
@@ -27,34 +29,41 @@ DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=84524"
 # Utility Function: Get Account Balance
 # -----------------------------------
 
-async def get_account_balance(token):
+# async def get_account_balance(token):
+#     """
+#     Connects to Deriv API and retrieves account balance.
+#     Returns: (balance, currency)
+#     """
+#     async with websockets.connect(DERIV_WS_URL) as websocket:
+#         # Authorize
+#         await websocket.send(json.dumps({"authorize": token}))
+#         auth_response = await websocket.recv()
+#         auth_data = json.loads(auth_response)
+
+#         if "error" in auth_data:
+#             raise Exception(f"Authorization failed: {auth_data['error']['message']}")
+
+#         # Request balance
+#         await websocket.send(json.dumps({"balance": 1}))
+#         balance_response = await websocket.recv()
+#         balance_data = json.loads(balance_response)
+
+#         if "error" in balance_data:
+#             raise Exception(f"Balance request failed: {balance_data['error']['message']}")
+
+#         # Extract data
+#         balance = balance_data["balance"]["balance"]
+#         currency = balance_data["balance"]["currency"]
+
+#         return balance, currency
+
+ # Replace the existing function:
+ async def get_account_balance(token):
     """
-    Connects to Deriv API and retrieves account balance.
+    Get account balance using the centralized balance manager.
     Returns: (balance, currency)
     """
-    async with websockets.connect(DERIV_WS_URL) as websocket:
-        # Authorize
-        await websocket.send(json.dumps({"authorize": token}))
-        auth_response = await websocket.recv()
-        auth_data = json.loads(auth_response)
-
-        if "error" in auth_data:
-            raise Exception(f"Authorization failed: {auth_data['error']['message']}")
-
-        # Request balance
-        await websocket.send(json.dumps({"balance": 1}))
-        balance_response = await websocket.recv()
-        balance_data = json.loads(balance_response)
-
-        if "error" in balance_data:
-            raise Exception(f"Balance request failed: {balance_data['error']['message']}")
-
-        # Extract data
-        balance = balance_data["balance"]["balance"]
-        currency = balance_data["balance"]["currency"]
-
-        return balance, currency
-
+    return await _get_account_balance(token)
 
 class DerivAPI:
     """
