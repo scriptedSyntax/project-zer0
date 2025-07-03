@@ -26,6 +26,14 @@
         /* Extend Tailwind with custom animations (if any for login page) */
         .animate-pulse-slow { animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         .animate-float { animation: float 3s ease-in-out infinite; }
+        /* Spinner animation */
+        .animate-spin-fast {
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
 
         @keyframes pulse-slow {
             0%, 100% { opacity: 1; }
@@ -107,9 +115,13 @@
             transition: all 0.2s ease-in-out;
             transform: scale(1);
         }
-        button[type="submit"].btn-primary:hover {
+        button[type="submit"].btn-primary:hover:not(:disabled) { /* Apply hover only when not disabled */
             opacity: 0.9;
             transform: scale(1.02);
+        }
+        button[type="submit"].btn-primary:disabled { /* Styling for disabled state */
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
 
@@ -215,8 +227,11 @@
                     </div>
                 {% endif %}
 
-                <button type="submit" class="btn btn-primary mt-4">
-                    <i class="bi bi-box-arrow-in-right mr-2"></i> Login
+                <button type="submit" class="btn btn-primary mt-4" id="login-button">
+                    <span id="button-text"><i class="bi bi-box-arrow-in-right mr-2"></i> Login</span>
+                    <span id="loading-spinner" class="hidden">
+                        <i class="bi bi-arrow-clockwise animate-spin-fast mr-2"></i> Loading...
+                    </span>
                 </button>
             </form>
 
@@ -237,12 +252,20 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Get the login form by its ID
             const loginForm = document.getElementById('login-form');
+            const loginButton = document.getElementById('login-button');
+            const buttonText = document.getElementById('button-text');
+            const loadingSpinner = document.getElementById('loading-spinner');
 
-            // Reset the form if it exists
             if (loginForm) {
-                loginForm.reset();
+                loginForm.reset(); // Reset the form on page load
+
+                loginForm.addEventListener('submit', function() {
+                    // Show loading state on button click
+                    loginButton.disabled = true;
+                    buttonText.classList.add('hidden');
+                    loadingSpinner.classList.remove('hidden');
+                });
             }
         });
     </script>
