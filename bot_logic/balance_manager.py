@@ -1,259 +1,311 @@
 # bot_logic/balance_manager.py
 
-# -----------------------------------
-# Import Libraries
-# -----------------------------------
+import asyncio
+import json
+import logging
+import websockets
+from typing import Dict, Callable, Optional, Set
+from collections import defaultdict
+from datetime import datetime
 
-import asyncio  # For async programming
-import websockets  # For WebSocket API communication
-import json  # For JSON encoding/decoding
-import time  # For sleep in monitor loop
-from collections import deque  # For analyzer tick history
-
-# Django/Channels imports
-from channels.generic.websocket import AsyncWebsocketConsumer
-from user_config.models import UserProfile
-# from utils.deriv_api import get_account_balance
-from asgiref.sync import sync_to_async
-
-# -----------------------------------
-# Global Constants
-# -----------------------------------
-
-# Deriv WebSocket API URL (demo app_id 1089)
-DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=84524"
-
-# -----------------------------------
-# Utility Function: Get Account Balance
-# -----------------------------------
-
-async def get_account_balance(token):
-    """
-    Connects to Deriv API and retrieves account balance.
-    Returns: (balance, currency)
-    """
-    async with websockets.connect(DERIV_WS_URL) as websocket:
-        # Authorize
-        await websocket.send(json.dumps({"authorize": token}))
-        auth_response = await websocket.recv()
-        auth_data = json.loads(auth_response)
-
-        if "error" in auth_data:
-            raise Exception(f"Authorization failed: {auth_data['error']['message']}")
-
-        # Request balance
-        await websocket.send(json.dumps({"balance": 1}))
-        balance_response = await websocket.recv()
-        balance_data = json.loads(balance_response)
-
-        if "error" in balance_data:
-            raise Exception(f"Balance request failed: {balance_data['error']['message']}")
-
-        # Extract data
-        balance = balance_data["balance"]["balance"]
-        currency = balance_data["balance"]["currency"]
-
-        return balance, currency
-
-
-# Add this to the END of your bot_logic/balance_manager.py file
+logger = logging.getLogger(__name__)
 
 class BalanceManager:
-    def __init__(self, token):
-        self.token = token
-        self.subscribers = []
-        
-    def subscribe(self, callback):
-        self.subscribers.append(callback)
-        
-    def unsubscribe(self, callback):
-        if callback in self.subscribers:
-            self.subscribers.remove(callback)
-            
-    async def get_current_balance(self):
-        return await get_account_balance(self.token)
-
-# Simple factory function
-async def get_balance_manager(token):
-    return BalanceManager(token)
-
-
-class DerivAPI:
     """
-    Minimal async Deriv WebSocket wrapper: supports DIGITEVEN, DIGITODD
+    Centralized balance management for all users.
+    Maintains single WebSocket connection per user token and broadcasts to multiple subscribers.
     """
-# This class provides methods to connect to Deriv WebSocket API, subscribe to ticks,
-
-    def __init__(self, token):
+    
+    _instances: Dict[str, 'BalanceManager'] = {}  # token -> BalanceManager instance
+    _locks: Dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+    
+    def __init__(self, token: str):
         self.token = token
         self.ws = None
-        self.subscriptions = {}
-
+        self.current_balance = None
+        self.current_currency = None
+        self.last_updated = None
+        self.subscribers: Set[Callable] = set()
+        self.connection_task = None
+        self.is_connected = False
+        self.reconnect_attempts = 0
+        self.max_reconnect_attempts = 5
+        self.reconnect_delay = 2.0
+        self._stop_event = asyncio.Event()
+        
+    @classmethod
+    async def get_instance(cls, token: str) -> 'BalanceManager':
+        """
+        Get or create a BalanceManager instance for a given token.
+        Ensures only one instance per token exists.
+        """
+        if token not in cls._instances:
+            async with cls._locks[token]:
+                if token not in cls._instances:
+                    instance = cls(token)
+                    cls._instances[token] = instance
+                    await instance.connect()
+        return cls._instances[token]
+    
+    @classmethod
+    async def cleanup_instance(cls, token: str):
+        """
+        Remove and cleanup a BalanceManager instance.
+        """
+        if token in cls._instances:
+            async with cls._locks[token]:
+                if token in cls._instances:
+                    instance = cls._instances.pop(token)
+                    await instance.disconnect()
+                    del cls._locks[token]
+    
     async def connect(self):
-        self.ws = await websockets.connect(DERIV_WS_URL)
-        await self._authorize()
-
-    async def _authorize(self):
-        await self._send({"authorize": self.token})
-        response = await self._recv()
-        if "error" in response:
-            raise Exception(f"Authorization failed: {response['error']['message']}")
-        print("✅ Authorized with Deriv API.")
-
-    async def subscribe_ticks(self, symbol):
-        await self._send({"ticks": symbol, "subscribe": 1})
-        response = await self._recv()
-        if "error" in response:
-            raise Exception(f"Subscribe failed: {response['error']['message']}")
-        subscription_id = response["tick"]["id"]
-        self.subscriptions[symbol] = subscription_id
-        print(f"✅ Subscribed to {symbol} (ID: {subscription_id})")
-        return subscription_id
-
-    async def unsubscribe(self, subscription_id):
-        await self._send({"forget": subscription_id})
-        await self._recv()
-        print(f"✅ Unsubscribed from {subscription_id}")
-
-    async def _send(self, msg):
-        await self.ws.send(json.dumps(msg))
-
-    async def _recv(self):
-        return json.loads(await self.ws.recv())
-
-    async def close(self):
+        """
+        Establish WebSocket connection and start balance monitoring.
+        """
+        if self.is_connected:
+            return
+            
+        self.connection_task = asyncio.create_task(self._connection_loop())
+        
+    async def disconnect(self):
+        """
+        Close WebSocket connection and cleanup resources.
+        """
+        self._stop_event.set()
+        
+        if self.connection_task:
+            self.connection_task.cancel()
+            try:
+                await self.connection_task
+            except asyncio.CancelledError:
+                pass
+                
         if self.ws:
             try:
                 await self.ws.close()
-            except Exception as e:
-                print(f"[WARN] WebSocket close failed: {e}")
-            print("✅ WebSocket closed.")
-
-
-
-# # -----------------------------------
-# Real-Time Analysis WebSocket Consumer
-# -----------------------------------
-
-# Lazy import analyzer
-def get_analyzer():
-    from analysis.logic_engine import RealTimeAnalyzer
-    return RealTimeAnalyzer
-
-class AnalysisConsumer(AsyncWebsocketConsumer):
-    """
-    WebSocket consumer for real-time analysis with balance updates.
-    """
-
-    async def connect(self):
+            except:
+                pass
+                
+        self.is_connected = False
+        self.subscribers.clear()
+        
+    async def _connection_loop(self):
         """
-        On WebSocket connect.
+        Main connection loop with automatic reconnection.
         """
-        self.user = self.scope["user"]
-
-        if not self.user.is_authenticated:
-            await self.close()
-            return
-
-        RealTimeAnalyzer = get_analyzer()
-        self.analyzer = RealTimeAnalyzer(self.user, self.send_update)
-        self.balance_task = None
-
-        await self.accept()
-        await self.send(json.dumps({"message": "WebSocket connected to analysis"}))
-
-    async def disconnect(self, close_code):
-        """
-        On WebSocket disconnect.
-        """
-        try:
-            await self.analyzer.stop()
-        except Exception as e:
-            print(f"[WARN] Cleanup error: {e}")
-
-        if self.balance_task:
-            self.balance_task.cancel()
+        while not self._stop_event.is_set():
             try:
-                await self.balance_task
-            except asyncio.CancelledError:
-                print("[Balance Loop] Cancelled on disconnect")
-
-    async def receive(self, text_data):
+                await self._establish_connection()
+                await self._handle_messages()
+            except Exception as e:
+                logger.error(f"Balance connection error for token {self.token[:8]}...: {e}")
+                self.is_connected = False
+                
+                if self.reconnect_attempts < self.max_reconnect_attempts:
+                    self.reconnect_attempts += 1
+                    delay = self.reconnect_delay * (2 ** (self.reconnect_attempts - 1))
+                    logger.info(f"Reconnecting in {delay}s (attempt {self.reconnect_attempts})")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"Max reconnection attempts reached for token {self.token[:8]}...")
+                    break
+                    
+    async def _establish_connection(self):
         """
-        On message received from client.
+        Establish WebSocket connection and authorize.
         """
-        data = json.loads(text_data)
-        command = data.get("command")
-
-        if command == "start_analysis":
-            new_symbol = data.get("symbol", "R_50")
-            new_last_x_ticks = data.get("last_x_ticks", 50)
-
-            await self.analyzer.stop()
-
-            self.analyzer.symbol = new_symbol
-            self.analyzer.last_x_ticks = new_last_x_ticks
-            self.analyzer.tick_history = deque(maxlen=new_last_x_ticks)
-            self.analyzer.tick_times = deque(maxlen=new_last_x_ticks)
-
-            await self.analyzer.start()
-
-            if self.balance_task:
-                self.balance_task.cancel()
-                try:
-                    await self.balance_task
-                except asyncio.CancelledError:
-                    pass
-
-            self.balance_task = asyncio.create_task(self.send_balance_loop())
-            await self.send(json.dumps({"message": "Analysis started"}))
-
-        elif command == "stop_analysis":
-            await self.analyzer.stop()
-            await self.send(json.dumps({"message": "Analysis stopped"}))
-
-            if self.balance_task:
-                self.balance_task.cancel()
-                try:
-                    await self.balance_task
-                except asyncio.CancelledError:
-                    pass
-
-        else:
-            await self.send(json.dumps({"error": "Unknown command"}))
-
-    async def send_update(self, update_data):
+        DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=84524"
+        
+        self.ws = await websockets.connect(DERIV_WS_URL)
+        
+        # Authorize
+        await self.ws.send(json.dumps({"authorize": self.token}))
+        auth_response = await self.ws.recv()
+        auth_data = json.loads(auth_response)
+        
+        if "error" in auth_data:
+            raise Exception(f"Authorization failed: {auth_data['error']['message']}")
+            
+        # Subscribe to balance updates
+        await self.ws.send(json.dumps({
+            "balance": 1,
+            "subscribe": 1
+        }))
+        
+        self.is_connected = True
+        self.reconnect_attempts = 0
+        logger.info(f"Balance manager connected for token {self.token[:8]}...")
+        
+    async def _handle_messages(self):
         """
-        Sends real-time analyzer updates to client.
+        Handle incoming WebSocket messages.
         """
-        await self.send(json.dumps(update_data))
-
-    async def send_balance_loop(self):
+        async for message in self.ws:
+            try:
+                data = json.loads(message)
+                
+                if data.get("msg_type") == "balance":
+                    await self._handle_balance_update(data)
+                    
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid JSON received: {message}")
+            except Exception as e:
+                logger.error(f"Error handling message: {e}")
+                
+    async def _handle_balance_update(self, data):
         """
-        Continuously sends updated balance to client every 1 second.
+        Process balance update and notify subscribers.
         """
+        if "balance" not in data:
+            return
+            
+        balance_info = data["balance"]
+        new_balance = float(balance_info.get("balance", 0))
+        new_currency = balance_info.get("currency", "USD")
+        
+        # Update internal state
+        old_balance = self.current_balance
+        self.current_balance = new_balance
+        self.current_currency = new_currency
+        self.last_updated = datetime.now()
+        
+        # Notify all subscribers
+        update_data = {
+            "balance": new_balance,
+            "currency": new_currency,
+            "previous_balance": old_balance,
+            "timestamp": self.last_updated.isoformat()
+        }
+        
+        # Create tasks for all subscribers to avoid blocking
+        tasks = []
+        for callback in self.subscribers.copy():  # Copy to avoid modification during iteration
+            try:
+                if asyncio.iscoroutinefunction(callback):
+                    tasks.append(asyncio.create_task(callback(update_data)))
+                else:
+                    callback(update_data)
+            except Exception as e:
+                logger.error(f"Error calling subscriber callback: {e}")
+                
+        # Wait for all async callbacks to complete
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+            
+    def subscribe(self, callback: Callable):
+        """
+        Subscribe to balance updates.
+        
+        Args:
+            callback: Function to call with balance updates.
+                     Can be sync or async function.
+                     Receives dict with: balance, currency, previous_balance, timestamp
+        """
+        self.subscribers.add(callback)
+        
+        # Send current balance immediately if available
+        if self.current_balance is not None:
+            update_data = {
+                "balance": self.current_balance,
+                "currency": self.current_currency,
+                "previous_balance": None,
+                "timestamp": self.last_updated.isoformat() if self.last_updated else None
+            }
+            
+            try:
+                if asyncio.iscoroutinefunction(callback):
+                    asyncio.create_task(callback(update_data))
+                else:
+                    callback(update_data)
+            except Exception as e:
+                logger.error(f"Error calling immediate callback: {e}")
+                
+    def unsubscribe(self, callback: Callable):
+        """
+        Unsubscribe from balance updates.
+        """
+        self.subscribers.discard(callback)
+        
+    async def get_current_balance(self) -> tuple[Optional[float], Optional[str]]:
+        """
+        Get current balance synchronously.
+        If not connected, makes a one-time API call.
+        
+        Returns:
+            tuple: (balance, currency) or (None, None) if unavailable
+        """
+        if self.is_connected and self.current_balance is not None:
+            return self.current_balance, self.current_currency
+            
+        # Fallback: make one-time API call
         try:
-            user_profile = await sync_to_async(UserProfile.objects.get)(user=self.user)
-            token = user_profile.deriv_token
-
-            while True:
-                try:
-                    balance, currency = await get_account_balance(token)
-                    await self.send(json.dumps({
-                        "type": "balance_update",
-                        "balance": balance,
-                        "currency": currency
-                    }))
-                except Exception as e:
-                    await self.send(json.dumps({
-                        "type": "balance_update",
-                        "error": str(e)
-                    }))
-
-                await asyncio.sleep(1)
-
-        except asyncio.CancelledError:
-            print("[Balance Loop] Cancelled")
-
+            return await self._fetch_balance_once()
         except Exception as e:
-            print(f"[ERROR] Balance loop crashed: {e}")
+            logger.error(f"Failed to fetch balance: {e}")
+            return None, None
+            
+    async def _fetch_balance_once(self) -> tuple[float, str]:
+        """
+        Make a one-time balance API call.
+        """
+        DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=84524"
+        
+        async with websockets.connect(DERIV_WS_URL) as ws:
+            # Authorize
+            await ws.send(json.dumps({"authorize": self.token}))
+            auth_response = await ws.recv()
+            auth_data = json.loads(auth_response)
+            
+            if "error" in auth_data:
+                raise Exception(f"Authorization failed: {auth_data['error']['message']}")
+                
+            # Get balance
+            await ws.send(json.dumps({"balance": 1}))
+            balance_response = await ws.recv()
+            balance_data = json.loads(balance_response)
+            
+            if "error" in balance_data:
+                raise Exception(f"Balance request failed: {balance_data['error']['message']}")
+                
+            balance = float(balance_data["balance"]["balance"])
+            currency = balance_data["balance"]["currency"]
+            
+            return balance, currency
+    
+    def get_subscriber_count(self) -> int:
+        """
+        Get number of active subscribers.
+        """
+        return len(self.subscribers)
+    
+    def is_balance_stale(self, max_age_seconds: int = 30) -> bool:
+        """
+        Check if balance data is stale.
+        """
+        if not self.last_updated:
+            return True
+            
+        age = (datetime.now() - self.last_updated).total_seconds()
+        return age > max_age_seconds
+
+
+# Convenience functions for backward compatibility
+async def get_balance_manager(token: str) -> BalanceManager:
+    """
+    Get a BalanceManager instance for the given token.
+    """
+    return await BalanceManager.get_instance(token)
+
+async def get_account_balance(token: str) -> tuple[float, str]:
+    """
+    Get account balance (backward compatibility function).
+    """
+    manager = await get_balance_manager(token)
+    return await manager.get_current_balance()
+
+async def cleanup_balance_manager(token: str):
+    """
+    Cleanup balance manager for a token.
+    """
+    await BalanceManager.cleanup_instance(token)
