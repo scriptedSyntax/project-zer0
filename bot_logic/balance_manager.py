@@ -56,6 +56,28 @@ async def get_account_balance(token):
         return balance, currency
 
 
+# Add this to the END of your bot_logic/balance_manager.py file
+
+class BalanceManager:
+    def __init__(self, token):
+        self.token = token
+        self.subscribers = []
+        
+    def subscribe(self, callback):
+        self.subscribers.append(callback)
+        
+    def unsubscribe(self, callback):
+        if callback in self.subscribers:
+            self.subscribers.remove(callback)
+            
+    async def get_current_balance(self):
+        return await get_account_balance(self.token)
+
+# Simple factory function
+async def get_balance_manager(token):
+    return BalanceManager(token)
+
+
 class DerivAPI:
     """
     Minimal async Deriv WebSocket wrapper: supports DIGITEVEN, DIGITODD
