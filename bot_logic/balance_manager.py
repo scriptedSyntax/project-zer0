@@ -1,4 +1,4 @@
-# utils/deriv_api.py
+# bot_logic/balance_manager.py
 
 # -----------------------------------
 # Import Libraries
