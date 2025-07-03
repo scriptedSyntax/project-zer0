@@ -8,13 +8,42 @@ from user_config.models import BotSettings
 # In-memory store of BotState per user
 user_bot_states = {}  # user_id -> BotState
 
+# def generate_martingale_sequence(base: float, factor: float, levels: int) -> List[float]:
+#     """
+#     Generate Martingale sequence: [base, base*factor, base*factor^2, ...]
+#     """
+#     seq = [round(base * (factor ** i), 2) for i in range(levels)]
+#     return seq
+
+
+
 def generate_martingale_sequence(base: float, factor: float, levels: int) -> List[float]:
     """
-    Generate Martingale sequence: [base, base*factor, base*factor^2, ...]
+    Generate Martingale sequence starting from factor^1: [base*factor, base*factor^2, ...]
+    This ensures proper indexing when martingale activates.
     """
-    seq = [round(base * (factor ** i), 2) for i in range(levels)]
+    seq = [round(base * (factor ** i), 2) for i in range(1, levels + 1)]
     return seq
- 
+
+# Example with base=1.00, factor=2:
+# OLD: [1.00, 2.00, 4.00, 8.00, 16.00, ...]  # Started from factor^0
+# NEW: [2.00, 4.00, 8.00, 16.00, 32.00, ...]  # Starts from factor^1
+
+# Now the indexing works correctly:
+# loss_counter = 3 → martingale_sequence[3] = 8.00 ❌ (was wrong)
+# loss_counter = 3 → martingale_sequence[3] = 16.00 ❌ (still wrong!)
+
+# Wait, we need to adjust the indexing in get_next_martingale_stake too:
+
+def get_next_martingale_stake(self) -> float:
+    """
+    Get stake amount for the current martingale level.
+    Since sequence now starts from factor^1, we use (loss_counter - 1) as index.
+    """
+    # Adjust index to account for sequence starting from factor^1
+    idx = min(self.loss_counter - 1, len(self.martingale_sequence) - 1)
+    return self.martingale_sequence[idx]
+
 def add_trade(self, trade: dict):
     self.trade_history.append(trade)
     self.awaiting_result = False  # ✅ Reset trade block after trade resolves
