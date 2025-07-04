@@ -31,9 +31,30 @@ async def cancel_pending_contracts(trade_manager, pending_trades, send_update_ca
         successful_cancels = sum(1 for r in results if r is True)
         logger.info(f"✅ Successfully cancelled {successful_cancels}/{len(cancel_tasks)} contracts")
 
+def get_contract_type_from_settings(bot_settings) -> str:
+    """Convert bot settings to contract type - maintains backward compatibility"""
+    if hasattr(bot_settings, 'market') and bot_settings.market:
+        # New market-based system
+        if bot_settings.market == "EVEN":
+            return "DIGITEVEN"
+        elif bot_settings.market == "ODD":
+            return "DIGITODD"
+        elif bot_settings.market == "OVER":
+            return f"DIGITOVER_{bot_settings.prediction_value}"
+        elif bot_settings.market == "UNDER":
+            return f"DIGITUNDER_{bot_settings.prediction_value}"
+    
+    # Fallback to old system for existing users
+    if hasattr(bot_settings, 'prediction') and bot_settings.prediction:
+        return bot_settings.prediction
+    
+    # Default fallback
+    return "DIGITEVEN"
+
 def evaluate_prediction(prediction: str, last_digit: int) -> bool:
     logger.debug(f"Evaluating prediction '{prediction}' against last digit '{last_digit}'")
 
+    # Existing prediction types (backward compatibility)
     if prediction == "DIGITODD":
         return last_digit % 2 == 1  # 1, 3, 5, 7, 9
     if prediction == "DIGITEVEN":
@@ -48,9 +69,16 @@ def evaluate_prediction(prediction: str, last_digit: int) -> bool:
         target = int(prediction.split("_")[2])
         return last_digit == target
 
+    # New prediction types (cleaner format)
+    if prediction.startswith("DIGITOVER_"):
+        threshold = int(prediction.split("_")[1])
+        return last_digit > threshold
+    if prediction.startswith("DIGITUNDER_"):
+        threshold = int(prediction.split("_")[1])
+        return last_digit < threshold
+
     logger.warning(f"Unhandled prediction: {prediction}")
     return False  # Safe default
-
 
 def calculate_profit(stake: float, is_loss: bool) -> float:
     """
@@ -61,7 +89,6 @@ def calculate_profit(stake: float, is_loss: bool) -> float:
     logger.debug(f"Calculated profit: stake={stake}, is_loss={is_loss}, profit={profit}")
     return profit
 
-
 async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callback, bot_mode=None):
     logger.info(f"Starting bot for user_id={user_id}")
     
@@ -70,8 +97,18 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
     bot_settings = await asyncio.to_thread(BotSettings.objects.get, user_id=user_id)
     await asyncio.to_thread(BotStatus.objects.filter(user_id=user_id).update, is_running=True)
 
+    # Get contract type from settings (supports both old and new systems)
+    contract_type = get_contract_type_from_settings(bot_settings)
+    
+    # Display appropriate market info
+    market_display = getattr(bot_settings, 'market', 'Legacy')
+    if hasattr(bot_settings, 'prediction_value') and bot_settings.prediction_value is not None:
+        market_display = f"{market_display} {bot_settings.prediction_value}"
+    elif hasattr(bot_settings, 'prediction'):
+        market_display = bot_settings.prediction
+
     await send_update_callback({
-        "message": f"🚀 Bot starting on {bot_settings.symbol} ({bot_settings.prediction}) "
+        "message": f"🚀 Bot starting on {bot_settings.symbol} ({market_display}) "
                    f"with base stake {bot_settings.stake}"
     })
 
@@ -106,7 +143,7 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
     await trade_manager.connect()
 
     pending_trades = {}
-    evaluation_tick_delay = getattr(bot_settings, 'tick_result_delay', 1)  # <-- renamed from offset
+    evaluation_tick_delay = getattr(bot_settings, 'tick_result_delay', 1)
 
     async for tick in get_live_ticks(user.deriv_token, bot_settings.symbol):
         if stop_event.is_set() or not state.running:
@@ -121,7 +158,7 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         for pcid, info in pending_trades.items():
             if tick["epoch"] == info["buy_epoch"] + evaluation_tick_delay:
                 last_digit = tick["last_digit"]
-                prediction = info["prediction"]
+                prediction = info["contract_type"]  # Use contract_type instead of prediction
                 is_win = evaluate_prediction(prediction, last_digit)
                 is_loss = not is_win
                 logger.info(
@@ -133,10 +170,6 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
                 else:
                     state.record_loss()
                     
-                    # if state.should_martingale(bot_settings.do_martingale_after):
-                    #     next_stake = state.get_next_martingale_stake()
-                    #     state.enqueue_stake(next_stake)
-
                     if state.should_martingale(bot_settings.do_martingale_after):
                         # Calculate correct martingale level
                         martingale_level = state.loss_counter - bot_settings.do_martingale_after
@@ -174,7 +207,7 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         stake = state.get_next_priority_stake(bot_settings.stake)
         await asyncio.sleep(SAFETY_MARGIN)
         proposal = await trade_manager.propose_contract(
-            bot_settings.symbol, stake, bot_settings.prediction
+            bot_settings.symbol, stake, contract_type  # Use contract_type instead of bot_settings.prediction
         )
         buy_info = await trade_manager.buy_contract(proposal["proposal_id"], proposal["ask_price"])
         cid = buy_info["contract_id"]
@@ -183,7 +216,7 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         pending_trades[cid] = {
             "stake": stake,
             "buy_epoch": buy_epoch,
-            "prediction": bot_settings.prediction
+            "contract_type": contract_type  # Store contract_type instead of prediction
         }
 
         state.awaiting_result = True  # ✅ Block further trades until result is processed
