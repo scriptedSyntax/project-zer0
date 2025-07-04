@@ -3,9 +3,11 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-PREDICTION_CHOICES = [
+MATKET_CHOICES = [
     ('DIGITEVEN', 'Even'),
     ('DIGITODD', 'Odd'),
+    ('DIGITOVER', 'Over'),
+    ('DIGITUNDER','Under')
 ]
 
 
@@ -36,11 +38,11 @@ class BotSettings(models.Model):
     take_profit = models.FloatField(default=10.0)
     stop_loss = models.FloatField(default=10.0)
     do_martingale_after = models.IntegerField(default=1)
-    prediction = models.CharField(max_length=10, choices=PREDICTION_CHOICES, default='even')
+    # prediction = models.CharField(max_length=10, choices=PREDICTION_CHOICES, default='even')
     ticks = models.IntegerField(default=1)
     symbol = models.CharField(max_length=20, choices=SYMBOL_CHOICES, default="R_50")
     tick_result_delay = models.IntegerField(default=1)
-    
+    # loss_counter = models.IntegerField(default=0)  
     market = models.CharField(max_length=10, choices=MARKET_CHOICES, default='EVEN')
     prediction_value = models.IntegerField(null=True, blank=True)
     
