@@ -405,16 +405,27 @@
                     {{ settings_form.do_martingale_after }}
                 </div>
 
-                <div class="mb-3">
-                    <label for="prediction" class="form-label text-gray-300">
-                        <i class="bi bi-shuffle me-1 text-warning"></i> Prediction:
-                    </label>
-                    <select id="prediction" name="prediction"
-                        class="form-control bg-gray-800 text-white border-gray-700 dark:bg-gray-800 dark:text-white">
-                        <option class="bg-white text-black" value="DIGITEVEN" {% if settings_form.instance.prediction == 'DIGITEVEN' %}selected{% endif %}>Even</option>
-                        <option class="bg-white text-black" value="DIGITODD" {% if settings_form.instance.prediction == 'DIGITODD' %}selected{% endif %}>Odd</option>
-                    </select>
-                </div>
+                !-- Replace the existing prediction div with this -->
+<div class="mb-3">
+    <label for="market-select" class="form-label text-gray-300">
+        <i class="bi bi-shuffle me-1 text-warning"></i> Market Type:
+    </label>
+    <select id="market-select" name="market"
+        class="form-control bg-gray-800 text-white border-gray-700 dark:bg-gray-800 dark:text-white">
+        <option class="bg-white text-black" value="EVEN" {% if settings_form.instance.market == 'EVEN' %}selected{% endif %}>Even</option>
+        <option class="bg-white text-black" value="ODD" {% if settings_form.instance.market == 'ODD' %}selected{% endif %}>Odd</option>
+        <option class="bg-white text-black" value="OVER" {% if settings_form.instance.market == 'OVER' %}selected{% endif %}>Over</option>
+        <option class="bg-white text-black" value="UNDER" {% if settings_form.instance.market == 'UNDER' %}selected{% endif %}>Under</option>
+    </select>
+</div>
+
+<div class="mb-3" id="prediction-value-container">
+    <label for="prediction-value" class="form-label text-gray-300">
+        <i class="bi bi-123 me-1 text-success"></i> Prediction Value (0-9):
+    </label>
+    {{ settings_form.prediction_value }}
+    <small class="form-text text-muted">Only required for Over/Under markets</small>
+</div>
 
                 <div class="mb-3">
                     {{ settings_form.ticks.label_tag }}
@@ -508,24 +519,6 @@ document.addEventListener('DOMContentLoaded', function () {
             log.scrollTop = log.scrollHeight;
         }
     }
-    // You would integrate your WebSocket and Chart.js logic here
-    // Example:
-    // const startAnalysisBtn = document.getElementById('start-analysis-btn');
-    // if (startAnalysisBtn) {
-    //     startAnalysisBtn.addEventListener('click', function() {
-    //         // Your WebSocket start logic
-    //         console.log("Starting analysis...");
-    //         // Update UI
-    //         document.getElementById('analysis-feed').innerHTML = '<p class="text-muted mb-0">Analysis started...</p>';
-    //     });
-    // }
-
-    // Similarly for stop-analysis-btn, and your Chart.js initialization and updates
-    // For Chart.js, remember to configure the chart options as discussed previously
-    // Example:
-    // const ctx = document.getElementById('evenOddChart').getContext('2d');
-    // const evenOddChart = new Chart(ctx, { /* Chart config here */ });
-
     // For the token form (assuming similar fetch logic to settings form)
     const tokenForm = document.getElementById('token-form');
     if (tokenForm) {
@@ -710,9 +703,39 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(() => balanceElem.classList.remove("pulse"), 500); // Animate balance update
     }
 
+    // Function to handle market type selection and prediction value visibility
+    function initializeMarketTypeHandling() {
+        const marketSelect = document.getElementById('market-select');
+        const predictionValueContainer = document.getElementById('prediction-value-container');
+        
+        if (!marketSelect || !predictionValueContainer) {
+            return; // Elements not found, skip initialization
+        }
+        
+        function togglePredictionValue() {
+            const selectedMarket = marketSelect.value;
+            if (selectedMarket === 'OVER' || selectedMarket === 'UNDER') {
+                predictionValueContainer.style.display = 'block';
+                document.getElementById('prediction-value').required = true;
+            } else {
+                predictionValueContainer.style.display = 'none';
+                document.getElementById('prediction-value').required = false;
+                document.getElementById('prediction-value').value = '';
+            }
+        }
+        
+        // Set initial state
+        togglePredictionValue();
+        
+        // Handle market type changes
+        marketSelect.addEventListener('change', togglePredictionValue);
+    }
+
     // Function to handle AJAX form submissions
     function handleAjaxForm(formId, successMsg) {
         const form = document.getElementById(formId);
+        if (!form) return; // Form not found, skip
+        
         form.addEventListener("submit", function (e) {
             e.preventDefault(); // Prevent the default form submission
             const data = new FormData(form); // Prepare form data
@@ -753,21 +776,24 @@ document.addEventListener('DOMContentLoaded', function () {
     const lastXTicks = document.getElementById("last-x-ticks");
 
     // Chart setup for tracking even and odd last digits
-    const evenOddChart = new Chart(document.getElementById('evenOddChart'), {
-        type: 'bar',
-        data: {
-            labels: ['Even', 'Odd'],
-            datasets: [{
-                label: 'Last Digit Count',
-                data: [0, 0],
-                backgroundColor: ['#3b82f6', '#ef4444']
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: { y: { beginAtZero: true } }
-        }
-    });
+    let evenOddChart;
+    if (document.getElementById('evenOddChart')) {
+        evenOddChart = new Chart(document.getElementById('evenOddChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Even', 'Odd'],
+                datasets: [{
+                    label: 'Last Digit Count',
+                    data: [0, 0],
+                    backgroundColor: ['#3b82f6', '#ef4444']
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
 
     // Function to initialize the analysis WebSocket connection (starts stopped)
     function startAnalysisSocket(symbol, tickCount) {
@@ -775,9 +801,11 @@ document.addEventListener('DOMContentLoaded', function () {
         window.digitBuffer = [];  // Clear buffer on new analysis start
     
         analysisSocket.onopen = () => {
-            analysisFeed.innerHTML = "<p class='text-muted'>Analysis connected. Waiting to start...</p>";
-            startBtn.disabled = true;  // disable start button
-            stopBtn.disabled = false;    // enable stop button
+            if (analysisFeed) {
+                analysisFeed.innerHTML = "<p class='text-muted'>Analysis connected. Waiting to start...</p>";
+            }
+            if (startBtn) startBtn.disabled = true;  // disable start button
+            if (stopBtn) stopBtn.disabled = false;    // enable stop button
         };
     
         // Incoming analysis data handler
@@ -790,7 +818,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const lastDigit = parseInt(data.last_digit);
                     if (!isNaN(lastDigit)) {
                         window.digitBuffer.push(lastDigit);
-                        const maxLength = parseInt(lastXTicks.value) || 100;
+                        const maxLength = parseInt(lastXTicks?.value) || 100;
                         if (window.digitBuffer.length > maxLength) {
                             window.digitBuffer = window.digitBuffer.slice(-maxLength);
                         }
@@ -811,32 +839,36 @@ document.addEventListener('DOMContentLoaded', function () {
     
         analysisSocket.onclose = () => {
             appendToFeed("WebSocket closed");
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
+            if (startBtn) startBtn.disabled = false;
+            if (stopBtn) stopBtn.disabled = true;
         };
     
         analysisSocket.onerror = (e) => console.error("Analysis WebSocket error:", e);
     }
 
-
     // Button handlers for starting and stopping analysis
-    startBtn.onclick = () => {
-        const symbol = symbolSelect.value;
-        const tickCount = lastXTicks.value;
-        localStorage.setItem("symbol-select", symbol);
-        localStorage.setItem("last-x-ticks", tickCount);
-        startAnalysisSocket(symbol, tickCount);
-    };
+    if (startBtn) {
+        startBtn.onclick = () => {
+            const symbol = symbolSelect?.value || "R_100";
+            const tickCount = lastXTicks?.value || "100";
+            localStorage.setItem("symbol-select", symbol);
+            localStorage.setItem("last-x-ticks", tickCount);
+            startAnalysisSocket(symbol, tickCount);
+        };
+    }
 
-    stopBtn.onclick = () => {
-        if (analysisSocket) {
-            analysisSocket.send(JSON.stringify({ command: "stop_analysis" }));
-            analysisSocket.close(); // Close the analysis socket
-        }
-    };
+    if (stopBtn) {
+        stopBtn.onclick = () => {
+            if (analysisSocket) {
+                analysisSocket.send(JSON.stringify({ command: "stop_analysis" }));
+                analysisSocket.close(); // Close the analysis socket
+            }
+        };
+    }
 
     // Function to append messages to the analysis feed
     function appendToFeed(msg) {
+        if (!analysisFeed) return;
         const p = document.createElement("p");
         p.innerHTML = msg;
         analysisFeed.appendChild(p);
@@ -845,6 +877,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Function to update the even/odd chart with new data
     function updateEvenOddChart(counts) {
+        if (!evenOddChart) return;
+        
         const even = counts.even || 0;
         const odd = counts.odd || 0;
         evenOddChart.data.datasets[0].data = [even, odd];
@@ -853,14 +887,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const total = even + odd;
         const resultEl = document.getElementById("weight-result");
 
-        if (total > 0) {
+        if (resultEl && total > 0) {
             const evenPct = ((even / total) * 100).toFixed(2);
             const oddPct = ((odd / total) * 100).toFixed(2);
             resultEl.textContent =
                 even > odd ? `Even digits dominate with ${evenPct}%` :
                 odd > even ? `Odd digits dominate with ${oddPct}%` :
                 "Even and Odd are perfectly balanced.";
-        } else {
+        } else if (resultEl) {
             resultEl.textContent = "Insufficient data to calculate.";
         }
     }
@@ -874,26 +908,28 @@ document.addEventListener('DOMContentLoaded', function () {
         const evenPercent = total > 0 ? ((even / total) * 100).toFixed(1) : 0;
         const oddPercent = total > 0 ? ((odd / total) * 100).toFixed(1) : 0;
 
-        document.getElementById("even-percentage").innerText = `Even: ${evenPercent}%`;
-        document.getElementById("odd-percentage").innerText = `Odd: ${oddPercent}%`;
+        const evenEl = document.getElementById("even-percentage");
+        const oddEl = document.getElementById("odd-percentage");
+        
+        if (evenEl) evenEl.innerText = `Even: ${evenPercent}%`;
+        if (oddEl) oddEl.innerText = `Odd: ${oddPercent}%`;
     }
+
+    // Initialize everything when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeMarketTypeHandling();
+    });
 
     // Initialize the WebSocket connections when the page loads
     window.onload = () => {
         connectWebSocket(); // Connect to the analysis WebSocket
-        connectBotSocket(); // Connect to the bot WebSocket
-
         
         const storedSymbol = localStorage.getItem("symbol-select") || "R_100"; // Load previously selected symbol
         const storedTicks = localStorage.getItem("last-x-ticks") || "100"; // Load previously selected tick count
-    //     symbolSelect.value = storedSymbol;
-    //     lastXTicks.value = storedTicks;
-    //     // startAnalysisSocket(storedSymbol, storedTicks); // Start analysis with stored values
-    // };
+        
         if (symbolSelect && lastXTicks) {
             symbolSelect.value = storedSymbol;
             lastXTicks.value = storedTicks;
-            // startAnalysisSocket(storedSymbol, storedTicks);
         }
     };
 </script>
