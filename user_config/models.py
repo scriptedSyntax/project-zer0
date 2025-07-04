@@ -1,16 +1,25 @@
-# user_config/models.py
+#user_config/models.py
 
 from django.db import models
 from django.contrib.auth.models import User
 
-MATKET_CHOICES = [
+# Corrected market choices
+MARKET_CHOICES = [
     ('DIGITEVEN', 'Even'),
     ('DIGITODD', 'Odd'),
     ('DIGITOVER', 'Over'),
-    ('DIGITUNDER','Under')
+    ('DIGITUNDER', 'Under')
 ]
 
+# Prediction choices (same as market choices for backward compatibility)
+PREDICTION_CHOICES = [
+    ('DIGITEVEN', 'Even'),
+    ('DIGITODD', 'Odd'),
+    ('DIGITOVER', 'Over'),
+    ('DIGITUNDER', 'Under')
+]
 
+# Symbol choices
 SYMBOL_CHOICES = [
     ('R_100', 'Volatility 100 Index'),
     ('1HZ100V', 'Volatility 100 (1s) Index'),
@@ -38,16 +47,14 @@ class BotSettings(models.Model):
     take_profit = models.FloatField(default=10.0)
     stop_loss = models.FloatField(default=10.0)
     do_martingale_after = models.IntegerField(default=1)
-    # prediction = models.CharField(max_length=10, choices=PREDICTION_CHOICES, default='even')
     ticks = models.IntegerField(default=1)
-    symbol = models.CharField(max_length=20, choices=SYMBOL_CHOICES, default="R_50")
     tick_result_delay = models.IntegerField(default=1)
-    # loss_counter = models.IntegerField(default=0)  
-    market = models.CharField(max_length=10, choices=MARKET_CHOICES, default='EVEN')
+    symbol = models.CharField(max_length=20, choices=SYMBOL_CHOICES, default="R_50")
+    market = models.CharField(max_length=12, choices=MARKET_CHOICES, default='DIGITEVEN')
     prediction_value = models.IntegerField(null=True, blank=True)
-    
-    # KEEP prediction field for backward compatibility
-    prediction = models.CharField(max_length=10, choices=PREDICTION_CHOICES, default='DIGITEVEN')
+
+    # Kept for backward compatibility
+    prediction = models.CharField(max_length=12, choices=PREDICTION_CHOICES, default='DIGITEVEN')
 
     def __str__(self):
         return f"{self.user.username} Bot Settings"
