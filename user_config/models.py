@@ -37,12 +37,15 @@ class BotSettings(models.Model):
     stop_loss = models.FloatField(default=10.0)
     do_martingale_after = models.IntegerField(default=1)
     prediction = models.CharField(max_length=10, choices=PREDICTION_CHOICES, default='even')
-    # loss_counter = models.IntegerField(default=0)
     ticks = models.IntegerField(default=1)
     symbol = models.CharField(max_length=20, choices=SYMBOL_CHOICES, default="R_50")
     tick_result_delay = models.IntegerField(default=1)
-
-    # models.py
+    
+    market = models.CharField(max_length=10, choices=MARKET_CHOICES, default='EVEN')
+    prediction_value = models.IntegerField(null=True, blank=True)
+    
+    # KEEP prediction field for backward compatibility
+    prediction = models.CharField(max_length=10, choices=PREDICTION_CHOICES, default='DIGITEVEN')
 
     def __str__(self):
         return f"{self.user.username} Bot Settings"
