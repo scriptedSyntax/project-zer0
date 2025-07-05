@@ -1,9 +1,9 @@
-
 # bot_logic/state_manager.py
 
 import collections
 from collections import deque
 from typing import Deque, List
+from bot_logic.balance_manager import get_balance_manager
 from user_config.models import BotSettings
 
 # In-memory store of BotState per user
@@ -17,6 +17,19 @@ def generate_martingale_sequence(base: float, factor: float, levels: int) -> Lis
     seq = [round(base * (factor ** i), 2) for i in range(1, levels + 1)]
     return seq
 
+def get_next_martingale_stake(self) -> float:
+    """
+    Get stake amount for the current martingale level.
+    Since sequence now starts from factor^1, we use (loss_counter - 1) as index.
+    """
+    # Adjust index to account for sequence starting from factor^1
+    idx = min(self.loss_counter - 1, len(self.martingale_sequence) - 1)
+    return self.martingale_sequence[idx]
+
+def add_trade(self, trade: dict):
+    self.trade_history.append(trade)
+    self.awaiting_result = False  # ✅ Reset trade block after trade resolves
+
 class BotState:
     def __init__(self, user_id: int):
         self.user_id = user_id
@@ -29,7 +42,6 @@ class BotState:
         self.trade_history: List[dict] = []
         self.awaiting_result = False  # 🚦 Block further trades until result arrives
         self.last_result = None       # 🧾 Store result (can help with advanced stake logic)
-        self.last_balance = None      # 💰 Track balance changes
 
     def init_martingale(self, bot_settings: BotSettings):
         """
@@ -64,7 +76,6 @@ class BotState:
         self.is_recovering = False
         self.stake_queue.clear()
         self.stake_queue.append(base_stake)
-        self.last_result = "win"
 
     def record_loss(self):
         """
@@ -74,7 +85,6 @@ class BotState:
         self.is_recovering = True
         # clear any queued stakes
         self.stake_queue.clear()
-        self.last_result = "loss"
 
     def should_martingale(self, trigger_after: int) -> bool:
         """
@@ -82,16 +92,14 @@ class BotState:
         """
         return (
             self.loss_counter >= trigger_after
-            and self.loss_counter < len(self.martingale_sequence) + 1  # +1 because sequence starts from factor^1
+            and self.loss_counter < len(self.martingale_sequence)
         )
 
     def get_next_martingale_stake(self) -> float:
         """
         Get stake amount for the current martingale level.
-        Since sequence now starts from factor^1, we use (loss_counter - 1) as index.
         """
-        # Adjust index to account for sequence starting from factor^1
-        idx = min(self.loss_counter - 1, len(self.martingale_sequence) - 1)
+        idx = min(self.loss_counter, len(self.martingale_sequence) - 1)
         return self.martingale_sequence[idx]
 
     def enqueue_stake(self, stake: float):
@@ -105,8 +113,7 @@ class BotState:
         Record trade details for history.
         """
         self.trade_history.append(trade)
-        self.awaiting_result = False  # ✅ Reset trade block after trade resolves
-
+    
     def reset_profit_tracking(self):
         """
         Reset any profit-related temporary tracking values.
@@ -114,51 +121,32 @@ class BotState:
         """
         pass  # If you later add attributes like self.last_profit, reset them here
 
-    def get_current_stats(self) -> dict:
-        """
-        Get current bot statistics.
-        """
-        total_trades = len(self.trade_history)
-        wins = sum(1 for trade in self.trade_history if trade["result"] == "win")
-        losses = total_trades - wins
-        total_profit = sum(trade["profit"] for trade in self.trade_history)
+ # Add this method to BotState class:
+async def setup_balance_monitoring(self, token: str):
+   """
+   Set up balance monitoring for this bot state.
+   """
+   self.balance_manager = await get_balance_manager(token)
+   self.balance_manager.subscribe(self._on_balance_update)
+   
+   # Get initial balance
+   balance, currency = await self.balance_manager.get_current_balance()
+   if balance is not None:
+       self.last_balance = balance
         
-        return {
-            "total_trades": total_trades,
-            "wins": wins,
-            "losses": losses,
-            "win_rate": (wins / total_trades * 100) if total_trades > 0 else 0,
-            "total_profit": total_profit,
-            "loss_counter": self.loss_counter,
-            "is_recovering": self.is_recovering,
-            "current_stake_queue": list(self.stake_queue),
-            "last_result": self.last_result,
-            "awaiting_result": self.awaiting_result
-        }
+async def _on_balance_update(self, balance_data):
+   """Handle balance updates."""
+   self.last_balance = balance_data["balance"]
+        
+def cleanup_balance_monitoring(self):
+   """
+   Clean up balance monitoring.
+   """
+   if hasattr(self, 'balance_manager'):
+       self.balance_manager.unsubscribe(self._on_balance_update)
 
-    def cleanup_balance_monitoring(self):
-        """
-        Clean up balance monitoring.
-        """
-        if hasattr(self, 'balance_manager'):
-            self.balance_manager.unsubscribe(self._on_balance_update)
+# Helper to check if bot is running
 
-# Helper functions
 def is_bot_running(user_id: int) -> bool:
-    """Check if bot is running for a specific user"""
     state = user_bot_states.get(user_id)
     return state.running if state else False
-
-def get_bot_stats(user_id: int) -> dict:
-    """Get bot statistics for a specific user"""
-    state = user_bot_states.get(user_id)
-    return state.get_current_stats() if state else {}
-
-def cleanup_bot_state(user_id: int):
-    """Clean up bot state when bot stops"""
-    state = user_bot_states.get(user_id)
-    if state:
-        state.cleanup_balance_monitoring()
-        state.running = False
-        # Optionally remove from memory or keep for stats
-        # user_bot_states.pop(user_id, None)

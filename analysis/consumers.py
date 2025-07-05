@@ -25,36 +25,6 @@ class AnalysisConsumer(AsyncWebsocketConsumer):
         self.bot_task = None
         self.bot_stop_event = None
 
-    # async def connect(self):
-    #     self.user = self.scope["user"]
-    #     if not self.user.is_authenticated:
-    #         await self.close()
-    #         return
-
-    #     await self.accept()
-    #     await self.send(json.dumps({"message": "WebSocket connected to analysis"}))
-
-    #     # ✅ Request balance once on connect
-    #     try:
-    #         user_profile = await sync_to_async(UserProfile.objects.get)(user=self.user)
-    #         token = user_profile.deriv_token
-    #         balance, currency = await get_account_balance(token)
-    #         await self.send(json.dumps({
-    #             "type": "balance_update",
-    #             "balance": balance,
-    #             "currency": currency
-    #         }))
-    #     except Exception as e:
-    #         print(f"[Balance Fetch on Connect] Error: {e}")
-
-    #     # ✅ If bot already running, start live balance loop
-    #     try:
-    #         if is_bot_running(self.user.id):
-    #             print("[Balance] Bot already running. Starting balance loop.")
-    #             self.balance_task = asyncio.create_task(self.send_balance_loop())
-    #     except Exception as e:
-    #         print(f"[Balance Check Error] {e}")
-
     # Replace the connect method:
     async def connect(self):
         self.user = self.scope["user"]
@@ -223,34 +193,22 @@ class AnalysisConsumer(AsyncWebsocketConsumer):
     async def send_update(self, update_data):
         await self.send(json.dumps(update_data))
 
+    # async def send_bot_update(self, update_data):
+    #     await self.send(json.dumps({
+    #         "type": "bot_update",
+    #         "data": update_data
+    #     }))
+
     async def send_bot_update(self, update_data):
-        await self.send(json.dumps({
-            "type": "bot_update",
-            "data": update_data
-        }))
+        # Send as-is if it's already structured (e.g., type = balance_update)
+        if isinstance(update_data, dict) and "type" in update_data:
+            await self.send(json.dumps(update_data))
+        else:
+            await self.send(json.dumps({
+                "type": "bot_update",
+                "data": update_data
+            }))
 
-    # async def send_balance_loop(self):
-    #     try:
-    #         user_profile = await sync_to_async(UserProfile.objects.get)(user=self.user)
-    #         token = user_profile.deriv_token
-
-    #         while True:
-    #             try:
-    #                 balance, currency = await get_account_balance(token)
-    #                 await self.send(json.dumps({
-    #                     "type": "balance_update",
-    #                     "balance": balance,
-    #                     "currency": currency
-    #                 }))
-    #             except Exception as e:
-    #                 print(f"[Balance Error] {e}")  # Avoid spamming frontend
-    #             await asyncio.sleep(0.3)  # Adjusted to 300ms for better performance
-
-    #     except asyncio.CancelledError:
-    #         print("[Balance Loop] Cancelled")
-
-    #     except Exception as e:
-    #         print(f"[ERROR] Balance loop crashed: {e}")
     async def send_balance_loop(self):
         try:
             user_profile = await sync_to_async(UserProfile.objects.get)(user=self.user)

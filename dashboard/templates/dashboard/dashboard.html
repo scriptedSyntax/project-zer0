@@ -187,8 +187,8 @@
             color: #00e676 !important; /* Green text for logs */
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 0.85rem;
-            height: 19rem; /* Consistent height for both logs */
-            max-height: 19rem;
+            height: 25rem; /* Consistent height for both logs */
+            max-height: 25rem;
             overflow-y: auto;
         }
         .text-muted { color: #777 !important; }
@@ -305,6 +305,7 @@
     </div>
 </div>
 
+<!-- bot balance -->
 <div class="mb-3 bg-gray-800 rounded-xl p-4 border border-gray-700 relative overflow-hidden">
     <div class="balance-background-glitch"></div>
     <div class="balance-background-money"></div>
@@ -313,10 +314,9 @@
         <p class="text-gray-300 text-xs uppercase tracking-widest mb-2">
             CURRENT BALANCE
         </p>
-<!--         <h3 id="balance-display" class="text-5xl font-extrabold text-transparent bg-clip-text main-balance-static"> -->
         <h3 id="balance-display" class="text-5xl font-extrabold main-balance-static">
-            <span class="text-green-400">$</span>{{ balance|default:"0.00" }}
-            <small class="text-gray-400 text-xl font-mono">{{ currency }}</small>
+            <span class="text-green-400"> </span><span id="balance-value">{{ balance|floatformat:2 }}</span>
+            <small id="balance-currency" class="text-gray-400 text-xl font-mono">{{ currency }}</small>
         </h3>
         <span class="badge rounded-full bg-orange-600 px-4 py-2 text-sm neon-status no-pulse">
             <i class="bi bi-cpu-fill mr-1"></i> ACTIVE
@@ -330,7 +330,7 @@
     <i class="bi bi-cpu"></i>
 </p>
 
-
+<!-- bot control -->
 <div class="mb-5 bg-gray-800 rounded-xl p-4 border border-gray-700">
     <h2 class="text-xl font-bold text-white mb-3 flex items-center gap-2">
         <i class="bi bi-robot text-blue-400"></i> Bot Control 🎃
@@ -366,16 +366,19 @@
         </div>
     </div>
 
-    <div id="bot-log" class="overflow-y-auto bg-gray-900 text-gray-200 p-3 space-y-2 rounded">
-        </div>
+    <div 
+        id="bot-log" class="overflow-y-auto bg-gray-900 text-gray-200 p-3 space-y-2 rounded">
+    </div>
 </div>
 
+<!-- bot settings -->
 <div class="col-md-6 mb-4">
     <div class="card shadow-sm bg-gray-900 text-white border border-gray-700">
         <div class="card-body">
             <h5 class="text-xl font-semibold mb-4 flex items-center">
                 <i class="bi bi-gear-fill text-info me-2"></i> Bot Settings
             </h5>
+
             <form method="post" id="settings-form">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="update_settings">
@@ -405,27 +408,50 @@
                     {{ settings_form.do_martingale_after }}
                 </div>
 
-                !-- Replace the existing prediction div with this -->
-<div class="mb-3">
-    <label for="market-select" class="form-label text-gray-300">
-        <i class="bi bi-shuffle me-1 text-warning"></i> Market Type:
-    </label>
-    <select id="market-select" name="market"
-        class="form-control bg-gray-800 text-white border-gray-700 dark:bg-gray-800 dark:text-white">
-        <option class="bg-white text-black" value="EVEN" {% if settings_form.instance.market == 'EVEN' %}selected{% endif %}>Even</option>
-        <option class="bg-white text-black" value="ODD" {% if settings_form.instance.market == 'ODD' %}selected{% endif %}>Odd</option>
-        <option class="bg-white text-black" value="OVER" {% if settings_form.instance.market == 'OVER' %}selected{% endif %}>Over</option>
-        <option class="bg-white text-black" value="UNDER" {% if settings_form.instance.market == 'UNDER' %}selected{% endif %}>Under</option>
-    </select>
-</div>
+                <!-- 🔸 MARKET TYPE -->
+                <div class="mb-3">
+                    <label for="market-type" class="form-label text-gray-300">
+                        <i class="bi bi-collection me-1 text-success"></i> Market Type:
+                    </label>
+                    <select id="market-type" name="market_type"
+                        class="form-control bg-gray-800 text-white border-gray-700">
+                        <option value="even_odd" {% if settings_form.instance.market_type == "even_odd" %}selected{% endif %}>Even/Odd</option>
+                        <option value="over" {% if settings_form.instance.market_type == "over" %}selected{% endif %}>Over</option>
+                        <option value="under" {% if settings_form.instance.market_type == "under" %}selected{% endif %}>Under</option>
+                    </select>
+                </div>
 
-<div class="mb-3" id="prediction-value-container">
-    <label for="prediction-value" class="form-label text-gray-300">
-        <i class="bi bi-123 me-1 text-success"></i> Prediction Value (0-9):
-    </label>
-    {{ settings_form.prediction_value }}
-    <small class="form-text text-muted">Only required for Over/Under markets</small>
-</div>
+                <!-- 🔸 PREDICTION (Even/Odd) -->
+                <div id="prediction-wrapper" class="mb-3">
+                    <label for="prediction" class="form-label text-gray-300">
+                        <i class="bi bi-shuffle me-1 text-warning"></i> Prediction:
+                    </label>
+                    <select id="prediction" name="prediction"
+                        class="form-control bg-gray-800 text-white border-gray-700">
+                        <option value="even" {% if settings_form.instance.prediction == "even" %}selected{% endif %}>Even</option>
+                        <option value="odd" {% if settings_form.instance.prediction == "odd" %}selected{% endif %}>Odd</option>
+                    </select>
+                </div>
+
+                <!-- 🔸 THRESHOLD -->
+                <div id="threshold-wrapper" class="mb-3" style="display: none;">
+                    <label for="threshold" class="form-label text-gray-300">
+                        <i class="bi bi-123 me-1 text-info"></i> Threshold:
+                    </label>
+                    <input type="number" name="threshold" id="threshold"
+                        class="form-control bg-gray-800 text-white border-gray-700"
+                        value="{{ settings_form.instance.threshold|default:'' }}">
+                </div>
+
+                <!-- 🔸 RECOVERY THRESHOLD -->
+                <div id="recovery-threshold-wrapper" class="mb-3" style="display: none;">
+                    <label for="recovery_threshold" class="form-label text-gray-300">
+                        <i class="bi bi-arrow-repeat me-1 text-danger"></i> With a Recovery of (Threshold):
+                    </label>
+                    <input type="number" name="recovery_threshold" id="recovery_threshold"
+                        class="form-control bg-gray-800 text-white border-gray-700"
+                        value="{{ settings_form.instance.recovery_threshold|default:'' }}">
+                </div>
 
                 <div class="mb-3">
                     {{ settings_form.ticks.label_tag }}
@@ -442,7 +468,7 @@
                         <i class="bi bi-diagram-3-fill me-1 text-primary"></i> Symbol:
                     </label>
                     <select id="symbol-select" name="symbol"
-                        class="form-control bg-gray-800 text-white border-gray-700 dark:bg-gray-800 dark:text-white">
+                        class="form-control bg-gray-800 text-white border-gray-700">
                         <optgroup label="Volatility Indices">
                             <option value="1HZ10V" {% if settings_form.instance.symbol == "1HZ10V" %}selected{% endif %}>Volatility 10 (1s) Index</option>
                             <option value="R_10" {% if settings_form.instance.symbol == "R_10" %}selected{% endif %}>Volatility 10 Index</option>
@@ -457,6 +483,7 @@
                         </optgroup>
                     </select>
                 </div>
+
                 <div class="mb-3">
                     {{ settings_form.tick_result_delay.label_tag }}
                     {{ settings_form.tick_result_delay }}
@@ -469,94 +496,6 @@
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const settingsForm = document.getElementById('settings-form');
-
-    if (settingsForm) {
-        settingsForm.addEventListener('submit', function (e) {
-            e.preventDefault(); // prevent full page reload
-
-            const formData = new FormData(settingsForm);
-            formData.append('action', 'update_settings');
-
-            console.log("🔄 Submitting bot settings form...");
-            for (let [key, value] of formData.entries()) {
-                console.log(`📨 ${key}: ${value}`);
-            }
-
-            fetch("", {
-                method: "POST",
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
-                },
-                body: formData
-            })
-            .then(response => {
-                console.log("✅ Server responded:", response);
-                return response.json();
-            })
-            .then(data => {
-                console.log("📥 Response data:", data);
-                if (data.status === "success") {
-                    alert("✅ Settings saved successfully!");
-                } else {
-                    alert("⚠️ Failed to save settings: " + data.message);
-                }
-            })
-            .catch(error => {
-                console.error("❌ Error submitting settings form:", error);
-            });
-        });
-    }
-
-    // Existing functions from your second snippet (place your analysis JS here)
-    function scrollToBottom() {
-        const log = document.getElementById("bot-log");
-        if (log) {
-            log.scrollTop = log.scrollHeight;
-        }
-    }
-    // For the token form (assuming similar fetch logic to settings form)
-    const tokenForm = document.getElementById('token-form');
-    if (tokenForm) {
-        tokenForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const formData = new FormData(tokenForm);
-            formData.append('action', 'update_token'); // Ensure action is correct for your backend
-
-            fetch("", {
-                method: "POST",
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
-                },
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                const tokenSuccessDiv = document.getElementById('token-success');
-                if (data.status === "success") {
-                    if (tokenSuccessDiv) {
-                        tokenSuccessDiv.classList.remove('d-none');
-                        setTimeout(() => tokenSuccessDiv.classList.add('d-none'), 3000);
-                    }
-                    alert("✅ Token updated successfully!");
-                } else {
-                    alert("⚠️ Failed to update token: " + (data.message || "Unknown error."));
-                }
-            })
-            .catch(error => {
-                console.error("❌ Error submitting token form:", error);
-                alert("An error occurred while updating the token.");
-            });
-        });
-    }
-
-});
-</script>
 
 
 <div class="mb-4">
@@ -627,158 +566,107 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
 </div>
 
+
 <!--
-    Bot WebSocket and Analysis Script
-    This script manages multiple WebSocket connections to interact with the bot system, 
-    handle analysis of last digits, update the bot's status, balance, and chart data, 
-    and process AJAX form submissions. It is designed to work with a bot running on the 
-    server and allows for real-time updates on bot activities, including analysis of 
-    even and odd digit counts.
+  🔧 THE GENESIS Dashboard Script
+
+  Purpose:
+  - Manages AJAX form submissions for bot settings and API token
+  - Handles real-time Even/Odd digit analysis using WebSocket
+  - Dynamically updates Chart.js visualizations
+  - Saves symbol and tick preferences to localStorage
+
+  Dependencies:
+  - Chart.js
+  - Bootstrap 5
+  - Tailwind CSS
+  - WebSocket endpoint: /wss/analysis/
+
+  Last Updated: 2025-07-05
 -->
 <script>
-    let ws, analysisSocket = null; // Declare WebSocket variables
-
-    // Function to connect to the bot WebSocket server
-    function connectWebSocket() {
-        // ws = new WebSocket("ws://" + window.location.host + "/wss/analysis/"); // Open connection to the server's analysis WebSocket
-        const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-        ws = new WebSocket(protocol + window.location.host + "/wss/analysis/");
-        ws.onopen = () => {
-            console.log("Bot WebSocket connected");
-            sendBotStatusCheck(); // ✅ Only check bot status now
-        };
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data); // Parse incoming data
-                // Update bot status and balance when received
-                if (data.bot_running !== undefined) updateBotStatusUI(data.bot_running);
-                if (data.type === "balance_update") updateBalanceUI(data.balance, data.currency);
-            } catch (err) {
-                console.error("Bot WS JSON parse error:", event.data);
-            }
-        };
-        ws.onerror = (e) => console.error("Bot WebSocket error:", e);
-        ws.onclose = () => {
-            console.warn("Bot WebSocket closed, retrying...");
-            setTimeout(connectWebSocket, 2000); // Retry connection after 2 seconds
-        };
-    }
-
-    // Function to start the bot by sending a "start_bot" command
-    function startBot() {
-        ws.send(JSON.stringify({ command: "start_bot" }));
-    }
-
-    // Function to stop the bot by sending a "stop_bot" command
-    function stopBot() {
-        ws.send(JSON.stringify({ command: "stop_bot" }));
-    }
-
-    // Function to check the bot's status
-    function sendBotStatusCheck() {
-        ws.send(JSON.stringify({ command: "bot_status" }));
-    }
-
-    // Function to update the bot status in the UI (Running or Stopped)
-    function updateBotStatusUI(isRunning) {
-        const elem = document.getElementById("bot-status");
-        elem.textContent = isRunning ? "Running" : "Stopped";
-        elem.className = isRunning ? "status-running" : "status-stopped";
-    }
-
-    // ✅ Function to update balance information in the UI (with fallback and null-check)
+    // ✅ Global balance update function
     function updateBalanceUI(balance, currency) {
-        const balanceElem = document.getElementById("balance-display");
-        if (!balanceElem) {
-            console.warn("⚠️ balance-display element not found.");
+        const valueEl = document.getElementById("balance-value");
+        const currencyEl = document.getElementById("balance-currency");
+
+        if (!valueEl || !currencyEl) {
+            console.warn("⚠️ Balance sub-elements not found.");
             return;
         }
-    
+
         const safeBalance = typeof balance === "number" ? balance.toFixed(2) : balance || "0.00";
         const safeCurrency = currency || "";
-    
-        balanceElem.innerHTML = `${safeBalance} <small class="text-muted">${safeCurrency}</small>`;
-        balanceElem.classList.add("pulse");
-    
-        setTimeout(() => balanceElem.classList.remove("pulse"), 500); // Animate balance update
+
+        valueEl.textContent = safeBalance;
+        currencyEl.textContent = safeCurrency;
     }
 
-    // Function to handle market type selection and prediction value visibility
-    function initializeMarketTypeHandling() {
-        const marketSelect = document.getElementById('market-select');
-        const predictionValueContainer = document.getElementById('prediction-value-container');
-        
-        if (!marketSelect || !predictionValueContainer) {
-            return; // Elements not found, skip initialization
-        }
-        
-        function togglePredictionValue() {
-            const selectedMarket = marketSelect.value;
-            if (selectedMarket === 'OVER' || selectedMarket === 'UNDER') {
-                predictionValueContainer.style.display = 'block';
-                document.getElementById('prediction-value').required = true;
+    document.addEventListener('DOMContentLoaded', () => {
+        // ✅ Update balance immediately from backend context
+        updateBalanceUI({{ balance|floatformat:2 }}, "{{ currency }}");
+
+        const marketTypeSelect = document.getElementById("market-type");
+        const predictionWrapper = document.getElementById("prediction-wrapper");
+        const thresholdWrapper = document.getElementById("threshold-wrapper");
+        const recoveryWrapper = document.getElementById("recovery-threshold-wrapper");
+
+        function togglePredictionFields() {
+            const selected = marketTypeSelect?.value;
+            if (selected === "even_odd") {
+                predictionWrapper.style.display = "block";
+                thresholdWrapper.style.display = "none";
+                recoveryWrapper.style.display = "none";
+            } else if (selected === "over" || selected === "under") {
+                predictionWrapper.style.display = "none";
+                thresholdWrapper.style.display = "block";
+                recoveryWrapper.style.display = "block";
             } else {
-                predictionValueContainer.style.display = 'none';
-                document.getElementById('prediction-value').required = false;
-                document.getElementById('prediction-value').value = '';
+                predictionWrapper.style.display = "none";
+                thresholdWrapper.style.display = "none";
+                recoveryWrapper.style.display = "none";
             }
         }
-        
-        // Set initial state
-        togglePredictionValue();
-        
-        // Handle market type changes
-        marketSelect.addEventListener('change', togglePredictionValue);
-    }
 
-    // Function to handle AJAX form submissions
-    function handleAjaxForm(formId, successMsg) {
-        const form = document.getElementById(formId);
-        if (!form) return; // Form not found, skip
-        
-        form.addEventListener("submit", function (e) {
-            e.preventDefault(); // Prevent the default form submission
-            const data = new FormData(form); // Prepare form data
-            fetch(window.location.href, {
-                method: "POST",
-                headers: {
-                    "X-CSRFToken": data.get("csrfmiddlewaretoken"), // Include CSRF token for security
-                    "X-Requested-With": "XMLHttpRequest"
-                },
-                body: data // Send form data to the server
-            })
-            .then(async resp => {
-                const contentType = resp.headers.get("Content-Type");
-                if (contentType && contentType.includes("application/json")) {
-                    const json = await resp.json();
-                    alert(json.message || successMsg); // Show success or error message
-                } else {
-                    const text = await resp.text();
-                    alert("Server did not return valid JSON:\n\n" + text); // Handle non-JSON responses
-                }
-            })
-            .catch(err => {
-                console.error("AJAX error:", err);
-                alert("AJAX error: " + err.message); // Show AJAX error message
+        if (marketTypeSelect) {
+            togglePredictionFields();
+            marketTypeSelect.addEventListener("change", togglePredictionFields);
+        }
+
+        function handleAjaxForm(formId, successMsg) {
+            const form = document.getElementById(formId);
+            if (!form) return;
+            form.addEventListener("submit", e => {
+                e.preventDefault();
+                const data = new FormData(form);
+                fetch(window.location.href, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": data.get("csrfmiddlewaretoken"),
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    body: data
+                })
+                .then(res => res.json())
+                .then(json => alert(json.message || successMsg))
+                .catch(err => {
+                    console.error("AJAX error:", err);
+                    alert("AJAX error: " + err.message);
+                });
             });
-        });
-    }
+        }
 
-    // Initialize AJAX forms for token and settings updates
-    handleAjaxForm("token-form", "Token updated!");
-    handleAjaxForm("settings-form", "Settings updated!");
+        handleAjaxForm("token-form", "Token updated!");
+        handleAjaxForm("settings-form", "Settings updated!");
 
-    // DOM elements for analysis control
-    const analysisFeed = document.getElementById("analysis-feed");
-    const startBtn = document.getElementById("start-analysis-btn");
-    const stopBtn = document.getElementById("stop-analysis-btn");
-    const symbolSelect = document.getElementById("analysis-symbol-select");
-    const lastXTicks = document.getElementById("last-x-ticks");
+        let analysisSocket = null;
+        const startBtn = document.getElementById("start-analysis-btn");
+        const stopBtn = document.getElementById("stop-analysis-btn");
+        const symbolSelect = document.getElementById("analysis-symbol-select");
+        const lastXTicks = document.getElementById("last-x-ticks");
+        const analysisFeed = document.getElementById("analysis-feed");
 
-    // Chart setup for tracking even and odd last digits
-    let evenOddChart;
-    if (document.getElementById('evenOddChart')) {
-        evenOddChart = new Chart(document.getElementById('evenOddChart'), {
+        const evenOddChart = new Chart(document.getElementById('evenOddChart'), {
             type: 'bar',
             data: {
                 labels: ['Even', 'Odd'],
@@ -793,408 +681,228 @@ document.addEventListener('DOMContentLoaded', function () {
                 scales: { y: { beginAtZero: true } }
             }
         });
-    }
 
-    // Function to initialize the analysis WebSocket connection (starts stopped)
-    function startAnalysisSocket(symbol, tickCount) {
-        analysisSocket = new WebSocket("ws://" + window.location.host + "/wss/analysis/");
-        window.digitBuffer = [];  // Clear buffer on new analysis start
-    
-        analysisSocket.onopen = () => {
-            if (analysisFeed) {
-                analysisFeed.innerHTML = "<p class='text-muted'>Analysis connected. Waiting to start...</p>";
+        function appendToFeed(msg) {
+            const p = document.createElement("p");
+            p.innerHTML = msg;
+            analysisFeed.appendChild(p);
+            analysisFeed.scrollTop = analysisFeed.scrollHeight;
+        }
+
+        function updateEvenOddChart({ even, odd }) {
+            evenOddChart.data.datasets[0].data = [even, odd];
+            evenOddChart.update();
+
+            const total = even + odd;
+            const result = document.getElementById("weight-result");
+            let evenPct = 0, oddPct = 0;
+            if (total > 0) {
+                evenPct = ((even / total) * 100).toFixed(2);
+                oddPct = ((odd / total) * 100).toFixed(2);
+                result.textContent = even > odd
+                    ? `Even digits dominate with ${evenPct}%`
+                    : odd > even
+                    ? `Odd digits dominate with ${oddPct}%`
+                    : "Even and Odd are perfectly balanced.";
+            } else {
+                result.textContent = "Insufficient data to calculate.";
             }
-            if (startBtn) startBtn.disabled = true;  // disable start button
-            if (stopBtn) stopBtn.disabled = false;    // enable stop button
-        };
-    
-        // Incoming analysis data handler
-        analysisSocket.onmessage = (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                if (data.type === 'analysis_update') {
-                    appendToFeed(`Tick: ${data.tick.quote} | Time: ${data.tick.epoch} | Last Digit: ${data.last_digit}`);
-    
-                    const lastDigit = parseInt(data.last_digit);
-                    if (!isNaN(lastDigit)) {
-                        window.digitBuffer.push(lastDigit);
-                        const maxLength = parseInt(lastXTicks?.value) || 100;
-                        if (window.digitBuffer.length > maxLength) {
-                            window.digitBuffer = window.digitBuffer.slice(-maxLength);
+
+            document.getElementById("even-percentage").innerText = `Even: ${evenPct}%`;
+            document.getElementById("odd-percentage").innerText = `Odd: ${oddPct}%`;
+        }
+
+        function startAnalysisSocket(symbol, tickCount) {
+            analysisSocket = new WebSocket(
+                (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wss/analysis/"
+            );
+            window.digitBuffer = [];
+
+            analysisSocket.onopen = () => {
+                appendToFeed("🔍 Connected. Analysis starting...");
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            };
+
+            analysisSocket.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === "analysis_update") {
+                        appendToFeed(`Tick: ${data.tick.quote} | Last Digit: ${data.last_digit}`);
+                        const digit = parseInt(data.last_digit);
+                        if (!isNaN(digit)) {
+                            window.digitBuffer.push(digit);
+                            if (window.digitBuffer.length > tickCount) {
+                                window.digitBuffer.shift();
+                            }
+                            const even = window.digitBuffer.filter(d => d % 2 === 0).length;
+                            const odd = window.digitBuffer.length - even;
+                            updateEvenOddChart({ even, odd });
                         }
-    
-                        const even = window.digitBuffer.filter(d => d % 2 === 0).length;
-                        const odd = window.digitBuffer.length - even;
-                        const newCounts = { even, odd };
-                        updateEvenOddChart(newCounts);
-                        updateDigitWeights(newCounts);
+                    } else if (data.type === "balance_update") {
+                        updateBalanceUI(data.balance, data.currency);
+                    } else if (data.error) {
+                        appendToFeed("❌ " + data.error);
                     }
-                } else if (data.error) {
-                    appendToFeed("Error: " + data.error);
+                } catch (err) {
+                    console.error("Parse error:", e.data);
                 }
-            } catch (err) {
-                console.error("Analysis WS JSON parse error:", e.data);
-            }
-        };
-    
-        analysisSocket.onclose = () => {
-            appendToFeed("WebSocket closed");
-            if (startBtn) startBtn.disabled = false;
-            if (stopBtn) stopBtn.disabled = true;
-        };
-    
-        analysisSocket.onerror = (e) => console.error("Analysis WebSocket error:", e);
-    }
+            };
 
-    // Button handlers for starting and stopping analysis
-    if (startBtn) {
+            analysisSocket.onclose = () => {
+                appendToFeed("🔌 Analysis socket closed");
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            };
+        }
+
         startBtn.onclick = () => {
-            const symbol = symbolSelect?.value || "R_100";
-            const tickCount = lastXTicks?.value || "100";
+            const symbol = symbolSelect.value;
+            const ticks = parseInt(lastXTicks.value);
             localStorage.setItem("symbol-select", symbol);
-            localStorage.setItem("last-x-ticks", tickCount);
-            startAnalysisSocket(symbol, tickCount);
+            localStorage.setItem("last-x-ticks", ticks);
+            startAnalysisSocket(symbol, ticks);
         };
-    }
 
-    if (stopBtn) {
         stopBtn.onclick = () => {
             if (analysisSocket) {
                 analysisSocket.send(JSON.stringify({ command: "stop_analysis" }));
-                analysisSocket.close(); // Close the analysis socket
+                analysisSocket.close();
             }
         };
-    }
 
-    // Function to append messages to the analysis feed
-    function appendToFeed(msg) {
-        if (!analysisFeed) return;
-        const p = document.createElement("p");
-        p.innerHTML = msg;
-        analysisFeed.appendChild(p);
-        analysisFeed.scrollTop = analysisFeed.scrollHeight; // Scroll to the bottom of the feed
-    }
-
-    // Function to update the even/odd chart with new data
-    function updateEvenOddChart(counts) {
-        if (!evenOddChart) return;
-        
-        const even = counts.even || 0;
-        const odd = counts.odd || 0;
-        evenOddChart.data.datasets[0].data = [even, odd];
-        evenOddChart.update(); // Refresh the chart
-
-        const total = even + odd;
-        const resultEl = document.getElementById("weight-result");
-
-        if (resultEl && total > 0) {
-            const evenPct = ((even / total) * 100).toFixed(2);
-            const oddPct = ((odd / total) * 100).toFixed(2);
-            resultEl.textContent =
-                even > odd ? `Even digits dominate with ${evenPct}%` :
-                odd > even ? `Odd digits dominate with ${oddPct}%` :
-                "Even and Odd are perfectly balanced.";
-        } else if (resultEl) {
-            resultEl.textContent = "Insufficient data to calculate.";
-        }
-    }
-
-    // Function to update the digit weights (even/odd percentage)
-    function updateDigitWeights(digitCounts) {
-        const even = digitCounts.even;
-        const odd = digitCounts.odd;
-        const total = even + odd;
-
-        const evenPercent = total > 0 ? ((even / total) * 100).toFixed(1) : 0;
-        const oddPercent = total > 0 ? ((odd / total) * 100).toFixed(1) : 0;
-
-        const evenEl = document.getElementById("even-percentage");
-        const oddEl = document.getElementById("odd-percentage");
-        
-        if (evenEl) evenEl.innerText = `Even: ${evenPercent}%`;
-        if (oddEl) oddEl.innerText = `Odd: ${oddPercent}%`;
-    }
-
-    // Initialize everything when DOM is ready
-    document.addEventListener('DOMContentLoaded', function() {
-        initializeMarketTypeHandling();
+        const storedSymbol = localStorage.getItem("symbol-select");
+        const storedTicks = localStorage.getItem("last-x-ticks");
+        if (storedSymbol) symbolSelect.value = storedSymbol;
+        if (storedTicks) lastXTicks.value = storedTicks;
     });
-
-    // Initialize the WebSocket connections when the page loads
-    window.onload = () => {
-        connectWebSocket(); // Connect to the analysis WebSocket
-        
-        const storedSymbol = localStorage.getItem("symbol-select") || "R_100"; // Load previously selected symbol
-        const storedTicks = localStorage.getItem("last-x-ticks") || "100"; // Load previously selected tick count
-        
-        if (symbolSelect && lastXTicks) {
-            symbolSelect.value = storedSymbol;
-            lastXTicks.value = storedTicks;
-        }
-    };
-</script>
-
-<!--
-    Bot WebSocket Script
-    This script manages the connection between the webpage and the bot WebSocket server.
-    It handles real-time updates for trade history, bot status, and balance updates.
--->
-<script>
-    // Get the trade history container element
-    const tradeBox = document.getElementById("trade-history");
-    // tradeBox.innerHTML = ""; // Clear old entries before new data is displayed
-    if (tradeBox) tradeBox.innerHTML = "";
-    else console.warn("⚠️ trade-history element not found.");
-    
-    // let botSocket = null; // Initialize the WebSocket variable
-    let totalProfit = 0;
-    let totalWins = 0;
-    let totalLosses = 0;
-
-    // Function to connect to the bot WebSocket server
-    function connectBotSocket() {
-        // Use the appropriate protocol based on the current page's protocol (ws or wss)
-        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        botSocket = new WebSocket(`${protocol}://${window.location.host}/wss/bot/`);
-        // botsSocket = new WebSocket(`${protocol}://${window.location.host}/wss/analysis/`);
-
-
-        // Handle WebSocket connection open event
-        botSocket.onopen = () => {
-            console.log("✅ Bot connected.");
-            checkBotStatus(); // Check bot's status after connection
-        };
-
-        // Handle WebSocket incoming message event
-        botSocket.onmessage = (e) => {
-            const data = JSON.parse(e.data); // Parse incoming JSON data
-
-            if (data.type === "bot_update") {
-                const update = data.data;
-
-                // Update cumulative stats
-                totalProfit += update.profit;
-                if (update.profit >= 0) {
-                    totalWins += 1;
-                } else {
-                    totalLosses += 1;
-                }
-
-                // Update stats UI
-                document.getElementById("total-profit").textContent =
-                    `${totalProfit >= 0 ? '+' : '-'}$${Math.abs(totalProfit).toFixed(2)}`;
-                document.getElementById("total-profit").style.color =
-                    totalProfit >= 0 ? '#28a745' : '#dc3545';
-
-                document.getElementById("total-wins").textContent = totalWins;
-                document.getElementById("total-losses").textContent = totalLosses;
-
-                // Create the trade entry
-                const entry = document.createElement("div");
-                entry.className = `mb-2 p-2 rounded text-white`;
-                entry.style.backgroundColor = update.profit >= 0 ? '#28a745' : '#dc3545';
-
-                const profitFormatted = update.profit >= 0
-                    ? `+$${update.profit.toFixed(2)}`
-                    : `-$${Math.abs(update.profit).toFixed(2)}`;
-
-                entry.textContent = `[${update.timestamp}] ${update.contract_type} - ${update.result.toUpperCase()} - $${update.stake.toFixed(2)} (${profitFormatted})`;
-
-                const waitingMsg = tradeBox.querySelector(".text-muted");
-                if (waitingMsg) waitingMsg.remove();
-
-                tradeBox.prepend(entry);
-            }
-
-            // If the message contains bot status info
-            if (data.bot_running !== undefined) {
-                updateBotStatusUI(data.bot_running); // Update UI with bot status (running/stopped)
-            }
-
-            // If the message contains a balance update
-            if (data.type === "balance_update") {
-                updateBalanceUI(data.balance, data.currency); // Update UI with balance information
-            }
-        };
-
-        // Handle WebSocket connection close event
-        botSocket.onclose = () => {
-            console.warn("❌ Disconnected. Reconnecting...");
-            setTimeout(connectBotSocket, 2000); // Attempt to reconnect after 2 seconds
-        };
-
-        // Handle WebSocket error event
-        botSocket.onerror = (e) => {
-            console.error("Bot error:", e); // Log any errors
-        };
-    }
-
-    // Function to start the bot by sending a "start_bot" command through WebSocket
-    function startBot() {
-        if (botSocket && botSocket.readyState === WebSocket.OPEN) {
-            botSocket.send(JSON.stringify({ command: "start_bot" }));
-        }
-    }
-
-    // Function to stop the bot by sending a "stop_bot" command through WebSocket
-    function stopBot() {
-        if (botSocket && botSocket.readyState === WebSocket.OPEN) {
-            botSocket.send(JSON.stringify({ command: "stop_bot" }));
-        }
-    }
-
-    // Function to check the current status of the bot by sending a "bot_status" command
-    function checkBotStatus() {
-        if (botSocket && botSocket.readyState === WebSocket.OPEN) {
-            botSocket.send(JSON.stringify({ command: "bot_status" }));
-        }
-    }
-
-    // Function to update the bot status on the UI (Running or Stopped)
-    function updateBotStatusUI(isRunning) {
-        const elem = document.getElementById("bot-status");
-        elem.textContent = isRunning ? "Running" : "Stopped"; // Change text based on bot status
-        elem.className = isRunning ? "status-running" : "status-stopped"; // Apply corresponding CSS class
-    }
 </script>
 
 <!-- Script for handling bot start/stop actions via WebSocket -->
 <script>
     (function() {
-    const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://')
-        + location.host + '/wss/bot/';
-    console.log('🌐 Connecting ', WS_URL);
-    // const boket(WS_URL);
-    const botSocket = new WebSocket(WS_URL);    
-    // botSocket = new WebSocket(WS_URL); // Use the global one already declared earlier
+        const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://')
+            + location.host + '/wss/bot/';
+        console.log('🌐 Connecting ', WS_URL);
+        const botSocket = new WebSocket(WS_URL);
 
+        let totalProfit = 0, winCount = 0, lossCount = 0;
+        const logEl     = document.getElementById('bot-log');
+        const profitEl  = document.getElementById('bot-profit');
+        const winsEl    = document.getElementById('bot-wins');
+        const lossesEl  = document.getElementById('bot-losses');
+        const statusEl  = document.getElementById('bot-status');
 
-    // Summary state
-    let totalProfit = 0, winCount = 0, lossCount = 0;
-
-    // DOM refs
-    const logEl     = document.getElementById('bot-log');
-    const profitEl  = document.getElementById('bot-profit');
-    const winsEl    = document.getElementById('bot-wins');
-    const lossesEl  = document.getElementById('bot-losses');
-    const statusEl  = document.getElementById('bot-status');
-
-    // Helpers
-    const fmtCurrency = n => '$' + n.toFixed(2);
-    function clearState() {
-        totalProfit = 0; winCount = 0; lossCount = 0;
-        profitEl.textContent = fmtCurrency(0);
-        winsEl.textContent = '0';
-        lossesEl.textContent = '0';
-        logEl.innerHTML = '';
-    }
-    function appendHTML(html) {
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = html;
-        logEl.appendChild(wrapper);
-        logEl.scrollTop = logEl.scrollHeight;
-    }
-
-    // WebSocket events
-    botSocket.addEventListener('open', () => {
-        appendHTML(`<span class="text-blue-300">🔌 Connected to Bot</span>`);
-    });
-
-    botSocket.addEventListener('message', (evt) => {
-        let msg;
-        try { msg = JSON.parse(evt.data); }
-        catch {
-        appendHTML(`<span class="text-yellow-300">⚠️ ${evt.data}</span>`);
-        return;
+        const fmtCurrency = n => '$' + n.toFixed(2);
+        function clearState() {
+            totalProfit = 0; winCount = 0; lossCount = 0;
+            profitEl.textContent = fmtCurrency(0);
+            winsEl.textContent = '0';
+            lossesEl.textContent = '0';
+            logEl.innerHTML = '';
+        }
+        function appendHTML(html) {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html;
+            logEl.appendChild(wrapper);
+            logEl.scrollTop = logEl.scrollHeight;
         }
 
-        // 1) plain-text messages
-        if (msg.message) {
-        appendHTML(`<span class="text-gray-400">${msg.message}</span>`);
-        if (msg.message.includes('Bot started')) {
-            clearState();
-            statusEl.textContent = 'Running';
-            statusEl.className = 'text-green-400 font-mono';
-        }
-        if (msg.message.includes('Bot stopped')) {
-            statusEl.textContent = 'Stopped';
-            statusEl.className = 'text-red-400 font-mono';
-        }
-        return;
-        }
+        botSocket.addEventListener('open', () => {
+            appendHTML(`<span class="text-blue-300">🔌 Connected to Bot</span>`);
+        });
 
-        // 2) tick events (optional)
-        if (msg.type === 'tick') {
-        appendHTML(`<span class="text-gray-500">⏱ Tick</span>`);
-        return;
-        }
+        botSocket.addEventListener('message', (evt) => {
+            let msg;
+            try { msg = JSON.parse(evt.data); }
+            catch {
+                appendHTML(`<span class="text-yellow-300">⚠️ ${evt.data}</span>`);
+                return;
+            }
 
-        // 3) trade updates: now with buy_time & sell_time
-        if (msg.type === 'bot_update') {
-        const { contract_id, stake, profit, result, buy_time, sell_time } = msg.data;
+            // ✅ Skip balance updates (handled elsewhere)
+            // if (msg.type === "balance_update") return;
+            if (msg.type === "balance_update") {
+                updateBalanceUI(msg.balance, msg.currency);  // ✅ Use existing function to update balance UI
+                return;
+            }
 
-        // update summary
-        totalProfit += profit;
-        profitEl.textContent = fmtCurrency(totalProfit);
-        if (result === 'win') winCount++;
-        else lossCount++;
-        winsEl.textContent = winCount;
-        lossesEl.textContent = lossCount;
+            if (msg.message) {
+                appendHTML(`<span class="text-gray-400">${msg.message}</span>`);
+                if (msg.message.includes('Bot started')) {
+                    clearState();
+                    statusEl.textContent = 'Running';
+                    statusEl.className = 'text-green-400 font-mono';
+                }
+                if (msg.message.includes('Bot stopped')) {
+                    statusEl.textContent = 'Stopped';
+                    statusEl.className = 'text-red-400 font-mono';
+                }
+                return;
+            }
 
-        // format the tick timestamps
-        const buyT  = new Date(buy_time * 1000).toLocaleTimeString();
-        const sellT = new Date(sell_time * 1000).toLocaleTimeString();
+            if (msg.type === 'tick') {
+                appendHTML(`<span class="text-gray-500">⏱ Tick</span>`);
+                return;
+            }
 
-        // card styling
-        const color = result === 'win' ? 'border-green-600' : 'border-red-600';
-        const emoji = result === 'win' ? '✅' : '❌';
-        const profitLabel = fmtCurrency(profit);
+            if (msg.type === 'bot_update') {
+                const { contract_id, stake, profit, result, buy_time, sell_time } = msg.data;
+                totalProfit += profit;
+                profitEl.textContent = fmtCurrency(totalProfit);
+                if (result === 'win') winCount++;
+                else lossCount++;
+                winsEl.textContent = winCount;
+                lossesEl.textContent = lossCount;
 
-        appendHTML(`
-            <div class="p-2 border-l-4 ${color} bg-gray-800 rounded space-y-1">
-            <div class="flex justify-between text-sm font-mono">
-                <span>${emoji} ${contract_id}</span>
-                <span>Buy: ${buyT}</span>
-                <span>Sell: ${sellT}</span>
-            </div>
-            <div class="text-gray-300 text-sm">
-                Stake: ${stake}, P/L: 
-                <span class="${result==='win'?'text-green-400':'text-red-400'}">
-                ${profitLabel}
-                </span>
-            </div>
-            </div>
-        `);
-        return;
-        }
+                const buyT  = new Date(buy_time * 1000).toLocaleTimeString();
+                const sellT = new Date(sell_time * 1000).toLocaleTimeString();
+                const color = result === 'win' ? 'border-green-600' : 'border-red-600';
+                const emoji = result === 'win' ? '✅' : '❌';
+                const profitLabel = fmtCurrency(profit);
 
-        // fallback
-        appendHTML(`<span class="text-yellow-300">ℹ️ ${evt.data}</span>`);
-    });
+                appendHTML(`
+                    <div class="p-2 border-l-4 ${color} bg-gray-800 rounded space-y-1">
+                        <div class="flex justify-between text-sm font-mono">
+                            <span>${emoji} ${contract_id}</span>
+                            <span>Buy: ${buyT}</span>
+                            <span>Sell: ${sellT}</span>
+                        </div>
+                        <div class="text-gray-300 text-sm">
+                            Stake: ${stake}, P/L: 
+                            <span class="${result==='win'?'text-green-400':'text-red-400'}">
+                            ${profitLabel}
+                            </span>
+                        </div>
+                    </div>
+                `);
+                return;
+            }
 
-    botSocket.addEventListener('close', () => {
-        appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot</span>`);
-        statusEl.textContent = 'Disconnected';
-        statusEl.className = 'text-red-500 font-mono';
-    });
+            appendHTML(`<span class="text-yellow-300">ℹ️ ${evt.data}</span>`);
+        });
 
-    botSocket.addEventListener('error', (err) => {
-        appendHTML(`<span class="text-red-500">❌ Server error</span>`);
-        console.error(err);
-    });
+        botSocket.addEventListener('close', () => {
+            appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot</span>`);
+            statusEl.textContent = 'Disconnected';
+            statusEl.className = 'text-red-500 font-mono';
+        });
 
-    // Button handlers
-    document.getElementById('start-bot-btn')
-        .addEventListener('click', () =>
-        botSocket.readyState===1 && botSocket.send(JSON.stringify({command:'start_bot'}))
-        );
-    document.getElementById('stop-bot-btn')
-        .addEventListener('click', () =>
-        botSocket.readyState===1 && botSocket.send(JSON.stringify({command:'stop_bot'}))
-        );
+        botSocket.addEventListener('error', (err) => {
+            appendHTML(`<span class="text-red-500">❌ Server error</span>`);
+            console.error(err);
+        });
+
+        document.getElementById('start-bot-btn')
+            .addEventListener('click', () =>
+                botSocket.readyState === 1 && botSocket.send(JSON.stringify({ command: 'start_bot' }))
+            );
+        document.getElementById('stop-bot-btn')
+            .addEventListener('click', () =>
+                botSocket.readyState === 1 && botSocket.send(JSON.stringify({ command: 'stop_bot' }))
+            );
     })();
 </script>
-
 
 
 <footer class="text-center mt-5 mb-10">

@@ -1,7 +1,5 @@
-
-
 ### analysis/bot_consumer.py  
-# ```python
+
 import json
 import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -24,16 +22,6 @@ class BotConsumer(AsyncWebsocketConsumer):
         await self.accept()
         # await self.send(json.dumps({"message": "Bot WebSocket connected."}))
         await self.send(json.dumps({"message": "Bot connected."}))
-
-    # async def connect(self):
-    #     if not self.scope["user"].is_authenticated:
-    #         await self.close()
-    #         return
-        
-    #     await self.accept()
-    #     await self.send(json.dumps({"message": "Bot WebSocket connected."}))
-    #     self.bot_task = None
-    #     self.stop_event = None
 
     async def disconnect(self, close_code):
         if self.bot_task:

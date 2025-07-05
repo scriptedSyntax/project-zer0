@@ -104,12 +104,13 @@ class BalanceManager:
                 
                 if self.reconnect_attempts < self.max_reconnect_attempts:
                     self.reconnect_attempts += 1
-                    delay = self.reconnect_delay * (2 ** (self.reconnect_attempts - 1))
+                    delay = max(1, self.reconnect_delay * (2 ** (self.reconnect_attempts - 1)))
                     logger.info(f"Reconnecting in {delay}s (attempt {self.reconnect_attempts})")
                     await asyncio.sleep(delay)
                 else:
                     logger.error(f"Max reconnection attempts reached for token {self.token[:8]}...")
                     break
+
                     
     async def _establish_connection(self):
         """
