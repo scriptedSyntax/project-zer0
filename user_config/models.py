@@ -1,25 +1,17 @@
-#user_config/models.py
-
 from django.db import models
 from django.contrib.auth.models import User
 
-# Corrected market choices
-MARKET_CHOICES = [
-    ('DIGITEVEN', 'Even'),
-    ('DIGITODD', 'Odd'),
-    ('DIGITOVER', 'Over'),
-    ('DIGITUNDER', 'Under')
-]
-
-# Prediction choices (same as market choices for backward compatibility)
 PREDICTION_CHOICES = [
-    ('DIGITEVEN', 'Even'),
-    ('DIGITODD', 'Odd'),
-    ('DIGITOVER', 'Over'),
-    ('DIGITUNDER', 'Under')
+    ('even', 'Even'),
+    ('odd', 'Odd'),
 ]
 
-# Symbol choices
+MARKET_CHOICES = [
+    ('even_odd', 'Even/Odd'),
+    ('over', 'Over'),
+    ('under', 'Under'),
+]
+
 SYMBOL_CHOICES = [
     ('R_100', 'Volatility 100 Index'),
     ('1HZ100V', 'Volatility 100 (1s) Index'),
@@ -42,19 +34,21 @@ class UserProfile(models.Model):
 
 class BotSettings(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+
     stake = models.FloatField(default=1.0)
     martingale = models.FloatField(default=2.0)
     take_profit = models.FloatField(default=10.0)
     stop_loss = models.FloatField(default=10.0)
     do_martingale_after = models.IntegerField(default=1)
-    ticks = models.IntegerField(default=1)
-    tick_result_delay = models.IntegerField(default=1)
-    symbol = models.CharField(max_length=20, choices=SYMBOL_CHOICES, default="R_50")
-    market = models.CharField(max_length=12, choices=MARKET_CHOICES, default='DIGITEVEN')
-    prediction_value = models.IntegerField(null=True, blank=True)
 
-    # Kept for backward compatibility
-    prediction = models.CharField(max_length=12, choices=PREDICTION_CHOICES, default='DIGITEVEN')
+    prediction = models.CharField(max_length=10, choices=PREDICTION_CHOICES, default='even')
+    ticks = models.IntegerField(default=1)
+    symbol = models.CharField(max_length=20, choices=SYMBOL_CHOICES, default="R_50")
+    tick_result_delay = models.IntegerField(default=1)
+
+    market_type = models.CharField(max_length=20, choices=MARKET_CHOICES, default='even_odd')
+    threshold = models.IntegerField(null=True, blank=True)  # Only used for over/under markets
+    recovery_threshold = models.IntegerField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.user.username} Bot Settings"
