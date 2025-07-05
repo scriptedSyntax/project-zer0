@@ -54,7 +54,7 @@ class BotState:
         self.martingale_sequence = generate_martingale_sequence(
             base=bot_settings.stake,
             factor=bot_settings.martingale,
-            levels=780
+            levels=100
         )
         # Start with base stake
         self.stake_queue.clear()
