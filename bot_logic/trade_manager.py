@@ -102,126 +102,125 @@ class DerivAPI:
         except Exception as e:
             logger.error(f"❗ Unexpected error in receive loop: {e}")
 
+    def subscribe_balance(self, callback):
+        self.balance_callback = callback
+        logger.debug("🔔 Balance callback subscribed.")
 
-        def subscribe_balance(self, callback):
-            self.balance_callback = callback
-            logger.debug("🔔 Balance callback subscribed.")
-        
-        async def propose_contract(self, symbol, stake, contract_type, duration=1):
-            payload = {
-                "proposal": 1,
-                "amount": stake,
-                "basis": "stake",
-                "currency": "USD",
-                "duration": duration,
-                "duration_unit": "t",
-                "symbol": symbol
-            }
+    async def propose_contract(self, symbol, stake, contract_type, duration=1):
+        payload = {
+            "proposal": 1,
+            "amount": stake,
+            "basis": "stake",
+            "currency": "USD",
+            "duration": duration,
+            "duration_unit": "t",
+            "symbol": symbol
+        }
 
-            # ✅ Parse 'over' and 'under' with thresholds
-            if contract_type.startswith("DIGIT_OVER_") or contract_type.startswith("DIGIT_UNDER_"):
-                # e.g., DIGIT_OVER_5 → contract_type=DIGITOVER, barrier=5
-                parts = contract_type.split("_")
-                if len(parts) == 3:
-                    payload["contract_type"] = f"DIGIT{parts[1].upper()}"
-                    payload["barrier"] = parts[2]
-                else:
-                    raise ValueError(f"Invalid contract_type format: {contract_type}")
-
-            # ✅ Support even_odd predictions
-            elif contract_type in ["DIGITEVEN", "DIGITODD"]:
-                payload["contract_type"] = contract_type
-
+        # ✅ Parse 'over' and 'under' with thresholds
+        if contract_type.startswith("DIGIT_OVER_") or contract_type.startswith("DIGIT_UNDER_"):
+            # e.g., DIGIT_OVER_5 → contract_type=DIGITOVER, barrier=5
+            parts = contract_type.split("_")
+            if len(parts) == 3:
+                payload["contract_type"] = f"DIGIT{parts[1].upper()}"
+                payload["barrier"] = parts[2]
             else:
-                raise ValueError(f"Unsupported contract type: {contract_type}")
+                raise ValueError(f"Invalid contract_type format: {contract_type}")
 
-            logger.info(f"📨 Sending contract proposal: {payload}")
-            resp = await self._send_request(payload)
-            p = resp.get("proposal")
+        # ✅ Support even_odd predictions
+        elif contract_type in ["DIGITEVEN", "DIGITODD"]:
+            payload["contract_type"] = contract_type
 
-            if not p:
-                logger.error(f"❌ Proposal failed, full response: {resp}")
-                raise Exception("Proposal failed, no 'proposal' in response.")
+        else:
+            raise ValueError(f"Unsupported contract type: {contract_type}")
 
-            logger.info(f"✅ Proposal received: id={p['id']}, ask_price={p['ask_price']}")
-            return {"proposal_id": p["id"], "ask_price": p["ask_price"]}
+        logger.info(f"📨 Sending contract proposal: {payload}")
+        resp = await self._send_request(payload)
+        p = resp.get("proposal")
 
-        async def buy_contract(self, proposal_id, price):
-            logger.info(f"🛒 Buying contract with proposal_id={proposal_id} for ${price}")
-            resp = await self._send_request({
-                "buy": proposal_id,
-                "price": price,
-                "subscribe": 1
-            })
+        if not p:
+            logger.error(f"❌ Proposal failed, full response: {resp}")
+            raise Exception("Proposal failed, no 'proposal' in response.")
 
-            b = resp.get("buy")
-            if not b:
-                raise Exception("Failed to buy contract, no 'buy' in response.")
+        logger.info(f"✅ Proposal received: id={p['id']}, ask_price={p['ask_price']}")
+        return {"proposal_id": p["id"], "ask_price": p["ask_price"]}
 
-            cid = b["contract_id"]
-            logger.info(f"✅ Contract bought: {cid}, purchase_time={b['purchase_time']}")
+    async def buy_contract(self, proposal_id, price):
+        logger.info(f"🛒 Buying contract with proposal_id={proposal_id} for ${price}")
+        resp = await self._send_request({
+            "buy": proposal_id,
+            "price": price,
+            "subscribe": 1
+        })
 
-            fut = asyncio.get_event_loop().create_future()
-            self.contract_futures[cid] = fut
+        b = resp.get("buy")
+        if not b:
+            raise Exception("Failed to buy contract, no 'buy' in response.")
 
-            return {"contract_id": cid, "timestamp": b["purchase_time"]}
+        cid = b["contract_id"]
+        logger.info(f"✅ Contract bought: {cid}, purchase_time={b['purchase_time']}")
 
-        async def get_result(self, contract_id):
-            logger.info(f"⏳ Awaiting result for contract_id={contract_id}")
-            fut = self.contract_futures.get(contract_id)
-            if fut:
-                try:
-                    result = await asyncio.wait_for(fut, timeout=1)     # adjust this timer
-                    logger.info(f"🎯 Result received for contract_id={contract_id}: {result}")
-                    return result
-                except asyncio.TimeoutError:
-                    logger.error(f"⏱️ Timeout waiting for contract {contract_id} to settle.")
-                    raise
+        fut = asyncio.get_event_loop().create_future()
+        self.contract_futures[cid] = fut
 
-            error_msg = f"🚫 No result future found for contract {contract_id}"
-            logger.error(error_msg)
-            raise Exception(error_msg)
+        return {"contract_id": cid, "timestamp": b["purchase_time"]}
 
-        async def close(self):
-            if self.recv_task:
-                self.recv_task.cancel()
-                logger.debug("🔒 Receive task cancelled.")
-                try:
-                    await self.recv_task
-                except asyncio.CancelledError:
-                    logger.debug("📴 Receive loop cancelled.")
-            if self.ws:
-                await self.ws.close()
-                logger.info("✅ WebSocket connection closed.")
-
-        async def _send_request(self, payload):
-            self.req_id_counter += 1
-            req_id = str(self.req_id_counter)
-            payload["req_id"] = req_id
-
-            fut = asyncio.get_event_loop().create_future()
-            self.pending_requests[req_id] = fut
-
-            logger.debug(f"📤 Sending request with req_id={req_id}: {payload}")
-            await self.ws.send(json.dumps(payload))
-            return await fut
-            
-        async def cancel_contract(self, contract_id):
-            """Cancel a specific contract if it's still open"""
-            logger.info(f"🚫 Cancelling contract: {contract_id}")
+    async def get_result(self, contract_id):
+        logger.info(f"⏳ Awaiting result for contract_id={contract_id}")
+        fut = self.contract_futures.get(contract_id)
+        if fut:
             try:
-                resp = await self._send_request({
-                    "cancel": contract_id
-                })
-                if "cancel" in resp:
-                    logger.info(f"✅ Contract {contract_id} cancelled successfully")
-                    return True
-                else:
-                    logger.warning(f"⚠️ Cancel response unexpected: {resp}")
-                    return False
-            except Exception as e:
-                logger.error(f"❌ Failed to cancel contract {contract_id}: {e}")
+                result = await asyncio.wait_for(fut, timeout=1)  # adjust this timer
+                logger.info(f"🎯 Result received for contract_id={contract_id}: {result}")
+                return result
+            except asyncio.TimeoutError:
+                logger.error(f"⏱️ Timeout waiting for contract {contract_id} to settle.")
+                raise
+
+        error_msg = f"🚫 No result future found for contract {contract_id}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+    async def close(self):
+        if self.recv_task:
+            self.recv_task.cancel()
+            logger.debug("🔒 Receive task cancelled.")
+            try:
+                await self.recv_task
+            except asyncio.CancelledError:
+                logger.debug("📴 Receive loop cancelled.")
+        if self.ws:
+            await self.ws.close()
+            logger.info("✅ WebSocket connection closed.")
+
+    async def _send_request(self, payload):
+        self.req_id_counter += 1
+        req_id = str(self.req_id_counter)
+        payload["req_id"] = req_id
+
+        fut = asyncio.get_event_loop().create_future()
+        self.pending_requests[req_id] = fut
+
+        logger.debug(f"📤 Sending request with req_id={req_id}: {payload}")
+        await self.ws.send(json.dumps(payload))
+        return await fut
+
+    async def cancel_contract(self, contract_id):
+        """Cancel a specific contract if it's still open"""
+        logger.info(f"🚫 Cancelling contract: {contract_id}")
+        try:
+            resp = await self._send_request({
+                "cancel": contract_id
+            })
+            if "cancel" in resp:
+                logger.info(f"✅ Contract {contract_id} cancelled successfully")
+                return True
+            else:
+                logger.warning(f"⚠️ Cancel response unexpected: {resp}")
                 return False
+        except Exception as e:
+            logger.error(f"❌ Failed to cancel contract {contract_id}: {e}")
+            return False
 
 class TradeManager:
     def __init__(self, token):
@@ -235,18 +234,18 @@ class TradeManager:
 
         # Set up balance manager
         self.balance_manager = await get_balance_manager(self.api.token)
-        
+
     async def get_current_balance(self):
         """Get current balance through balance manager."""
         if self.balance_manager:
             return await self.balance_manager.get_current_balance()
         return None, None
-        
+
     async def subscribe_to_balance(self, callback):
         """Subscribe to balance updates."""
         if self.balance_manager:
             self.balance_manager.subscribe(callback)
-            
+
     async def unsubscribe_from_balance(self, callback):
         """Unsubscribe from balance updates."""
         if self.balance_manager:
@@ -264,6 +263,6 @@ class TradeManager:
     async def close(self):
         logger.info("🛑 Closing TradeManager session...")
         await self.api.close()
-    
+
     async def cancel_contract(self, contract_id):
         return await self.api.cancel_contract(contract_id)
