@@ -584,7 +584,7 @@
 
   Last Updated: 2025-07-05
 -->
-<script>
+<!-- <script>
     // ✅ Global balance update function
     function updateBalanceUI(balance, currency) {
         const valueEl = document.getElementById("balance-value");
@@ -777,7 +777,201 @@
         if (storedTicks) lastXTicks.value = storedTicks;
     });
 </script>
+ -->
+<script>
+    function updateBalanceUI(balance, currency) {
+        const valueEl = document.getElementById("balance-value");
+        const currencyEl = document.getElementById("balance-currency");
 
+        if (!valueEl || !currencyEl) {
+            console.warn("⚠️ Balance sub-elements not found.");
+            return;
+        }
+
+        const safeBalance = typeof balance === "number" ? balance.toFixed(2) : balance || "0.00";
+        const safeCurrency = currency || "";
+
+        valueEl.textContent = safeBalance;
+        currencyEl.textContent = safeCurrency;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        updateBalanceUI({{ balance|floatformat:2 }}, "{{ currency }}");
+
+        const marketTypeSelect = document.getElementById("market-type");
+        const predictionWrapper = document.getElementById("prediction-wrapper");
+        const thresholdWrapper = document.getElementById("threshold-wrapper");
+        const recoveryWrapper = document.getElementById("recovery-threshold-wrapper");
+
+        function togglePredictionFields() {
+            const selected = marketTypeSelect?.value;
+            if (selected === "even_odd") {
+                predictionWrapper.style.display = "block";
+                thresholdWrapper.style.display = "none";
+                recoveryWrapper.style.display = "none";
+            } else if (selected === "over" || selected === "under") {
+                predictionWrapper.style.display = "none";
+                thresholdWrapper.style.display = "block";
+                recoveryWrapper.style.display = "block";
+            } else {
+                predictionWrapper.style.display = "none";
+                thresholdWrapper.style.display = "none";
+                recoveryWrapper.style.display = "none";
+            }
+        }
+
+        if (marketTypeSelect) {
+            togglePredictionFields();
+            marketTypeSelect.addEventListener("change", togglePredictionFields);
+        }
+
+        function handleAjaxForm(formId, successMsg) {
+            const form = document.getElementById(formId);
+            if (!form) return;
+            form.addEventListener("submit", e => {
+                e.preventDefault();
+                const data = new FormData(form);
+                fetch(window.location.href, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": data.get("csrfmiddlewaretoken"),
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    body: data
+                })
+                .then(res => res.json())
+                .then(json => alert(json.message || successMsg))
+                .catch(err => {
+                    console.error("AJAX error:", err);
+                    alert("AJAX error: " + err.message);
+                });
+            });
+        }
+
+        handleAjaxForm("token-form", "Token updated!");
+        handleAjaxForm("settings-form", "Settings updated!");
+
+        let analysisSocket = null;
+        const startBtn = document.getElementById("start-analysis-btn");
+        const stopBtn = document.getElementById("stop-analysis-btn");
+        const symbolSelect = document.getElementById("analysis-symbol-select");
+        const lastXTicks = document.getElementById("last-x-ticks");
+        const analysisFeed = document.getElementById("analysis-feed");
+
+        const evenOddChart = new Chart(document.getElementById('evenOddChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Even', 'Odd'],
+                datasets: [{
+                    label: 'Last Digit Count',
+                    data: [0, 0],
+                    backgroundColor: ['#3b82f6', '#ef4444']
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        function appendToFeed(msg) {
+            const p = document.createElement("p");
+            p.innerHTML = msg;
+            analysisFeed.appendChild(p);
+            analysisFeed.scrollTop = analysisFeed.scrollHeight;
+        }
+
+        function updateEvenOddChart({ even, odd }) {
+            evenOddChart.data.datasets[0].data = [even, odd];
+            evenOddChart.update();
+
+            const total = even + odd;
+            const result = document.getElementById("weight-result");
+            let evenPct = 0, oddPct = 0;
+            if (total > 0) {
+                evenPct = ((even / total) * 100).toFixed(2);
+                oddPct = ((odd / total) * 100).toFixed(2);
+                result.textContent = even > odd
+                    ? `Even digits dominate with ${evenPct}%`
+                    : odd > even
+                    ? `Odd digits dominate with ${oddPct}%`
+                    : "Even and Odd are perfectly balanced.";
+            } else {
+                result.textContent = "Insufficient data to calculate.";
+            }
+
+            document.getElementById("even-percentage").innerText = `Even: ${evenPct}%`;
+            document.getElementById("odd-percentage").innerText = `Odd: ${oddPct}%`;
+        }
+
+        function startAnalysisSocket(symbol, tickCount) {
+            analysisSocket = new WebSocket(
+                (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wss/analysis/"
+            );
+            window.digitBuffer = [];
+
+            analysisSocket.onopen = () => {
+                appendToFeed("🔍 Connected. Analysis starting...");
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            };
+
+            analysisSocket.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === "analysis_update") {
+                        appendToFeed(`Tick: ${data.tick.quote} | Last Digit: ${data.last_digit}`);
+                        const digit = parseInt(data.last_digit);
+                        if (!isNaN(digit)) {
+                            window.digitBuffer.push(digit);
+                            if (window.digitBuffer.length > tickCount) {
+                                window.digitBuffer.shift();
+                            }
+                            const even = window.digitBuffer.filter(d => d % 2 === 0).length;
+                            const odd = window.digitBuffer.length - even;
+                            updateEvenOddChart({ even, odd });
+                        }
+                    } else if (data.type === "balance_update") {
+                        updateBalanceUI(data.balance, data.currency);
+                    } else if (data.error) {
+                        appendToFeed("❌ " + data.error);
+                    }
+                } catch (err) {
+                    console.error("Parse error:", e.data);
+                }
+            };
+
+            analysisSocket.onclose = () => {
+                appendToFeed("🔌 Analysis socket closed");
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            };
+        }
+
+        startBtn.onclick = () => {
+            const symbol = symbolSelect.value;
+            const ticks = parseInt(lastXTicks.value);
+            localStorage.setItem("symbol-select", symbol);
+            localStorage.setItem("last-x-ticks", ticks);
+            startAnalysisSocket(symbol, ticks);
+        };
+
+        stopBtn.onclick = () => {
+            if (analysisSocket) {
+                analysisSocket.send(JSON.stringify({ command: "stop_analysis" }));
+                analysisSocket.close();
+            }
+        };
+
+        const storedSymbol = localStorage.getItem("symbol-select");
+        const storedTicks = localStorage.getItem("last-x-ticks");
+        if (storedSymbol) symbolSelect.value = storedSymbol;
+        if (storedTicks) lastXTicks.value = storedTicks;
+    });
+</script>
+
+
+    
 <!-- Script for handling bot start/stop actions via WebSocket -->
 <script>
     (function() {
