@@ -70,6 +70,47 @@ class DerivAPI:
         print(f"✅ Subscribed to {symbol} (ID: {subscription_id})")
         return subscription_id
 
+        
+        async def propose_contract(self, symbol, stake, contract_type, duration=1):
+            payload = {
+                "proposal": 1,
+                "amount": stake,
+                "basis": "stake",
+                "currency": "USD",
+                "duration": duration,
+                "duration_unit": "t",
+                "symbol": symbol
+            }
+
+            # ✅ Parse 'over' and 'under' with thresholds
+            if contract_type.startswith("DIGIT_OVER_") or contract_type.startswith("DIGIT_UNDER_"):
+                # e.g., DIGIT_OVER_5 → contract_type=DIGITOVER, barrier=5
+                parts = contract_type.split("_")
+                if len(parts) == 3:
+                    payload["contract_type"] = f"DIGIT{parts[1].upper()}"
+                    payload["barrier"] = parts[2]
+                else:
+                    raise ValueError(f"Invalid contract_type format: {contract_type}")
+
+            # ✅ Support even_odd predictions
+            elif contract_type in ["DIGITEVEN", "DIGITODD"]:
+                payload["contract_type"] = contract_type
+
+            else:
+                raise ValueError(f"Unsupported contract type: {contract_type}")
+
+            logger.info(f"📨 Sending contract proposal: {payload}")
+            resp = await self._send_request(payload)
+            p = resp.get("proposal")
+
+            if not p:
+                logger.error(f"❌ Proposal failed, full response: {resp}")
+                raise Exception("Proposal failed, no 'proposal' in response.")
+
+            logger.info(f"✅ Proposal received: id={p['id']}, ask_price={p['ask_price']}")
+            return {"proposal_id": p["id"], "ask_price": p["ask_price"]}
+
+    
     async def unsubscribe(self, subscription_id):
         await self._send({"forget": subscription_id})
         await self._recv()
