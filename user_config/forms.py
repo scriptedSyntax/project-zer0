@@ -1,3 +1,5 @@
+# user_config/forms.py
+
 from django import forms
 from .models import UserProfile, BotSettings
 

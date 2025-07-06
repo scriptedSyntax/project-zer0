@@ -319,7 +319,7 @@
             <small id="balance-currency" class="text-gray-400 text-xl font-mono">{{ currency }}</small>
         </h3>
         <span class="badge rounded-full bg-orange-600 px-4 py-2 text-sm neon-status no-pulse">
-            <i class="bi bi-cpu-fill mr-1"></i> ACTIVE
+            <i class="bi bi-cpu-fill mr-1"></i> LIVE
         </span>
     </div>
 </div>
@@ -383,92 +383,66 @@
                 {% csrf_token %}
                 <input type="hidden" name="action" value="update_settings">
 
-                <div class="mb-3">
-                    {{ settings_form.stake.label_tag }}
-                    {{ settings_form.stake }}
-                </div>
-
-                <div class="mb-3">
-                    {{ settings_form.martingale.label_tag }}
-                    {{ settings_form.martingale }}
-                </div>
-
-                <div class="mb-3">
-                    {{ settings_form.take_profit.label_tag }}
-                    {{ settings_form.take_profit }}
-                </div>
-
-                <div class="mb-3">
-                    {{ settings_form.stop_loss.label_tag }}
-                    {{ settings_form.stop_loss }}
-                </div>
-
-                <div class="mb-3">
-                    {{ settings_form.do_martingale_after.label_tag }}
-                    {{ settings_form.do_martingale_after }}
-                </div>
+                <div class="mb-3">{{ settings_form.stake.label_tag }}{{ settings_form.stake }}</div>
+                <div class="mb-3">{{ settings_form.martingale.label_tag }}{{ settings_form.martingale }}</div>
+                <div class="mb-3">{{ settings_form.take_profit.label_tag }}{{ settings_form.take_profit }}</div>
+                <div class="mb-3">{{ settings_form.stop_loss.label_tag }}{{ settings_form.stop_loss }}</div>
+                <div class="mb-3">{{ settings_form.do_martingale_after.label_tag }}{{ settings_form.do_martingale_after }}</div>
 
                 <!-- 🔸 MARKET TYPE -->
                 <div class="mb-3">
                     <label for="market-type" class="form-label text-gray-300">
                         <i class="bi bi-collection me-1 text-success"></i> Market Type:
                     </label>
-                    <select id="market-type" name="market_type"
-                        class="form-control bg-gray-800 text-white border-gray-700">
+                    <select id="market-type" name="market_type" class="form-control bg-gray-800 text-white border-gray-700">
                         <option value="even_odd" {% if settings_form.instance.market_type == "even_odd" %}selected{% endif %}>Even/Odd</option>
                         <option value="over" {% if settings_form.instance.market_type == "over" %}selected{% endif %}>Over</option>
                         <option value="under" {% if settings_form.instance.market_type == "under" %}selected{% endif %}>Under</option>
+                        <option value="matches" {% if settings_form.instance.market_type == "matches" %}selected{% endif %}>Matches</option>
+                        <option value="differs" {% if settings_form.instance.market_type == "differs" %}selected{% endif %}>Differs</option>
                     </select>
                 </div>
 
-                <!-- 🔸 PREDICTION (Even/Odd) -->
+                <!-- 🔸 PREDICTION (Even/Odd only) -->
                 <div id="prediction-wrapper" class="mb-3">
                     <label for="prediction" class="form-label text-gray-300">
                         <i class="bi bi-shuffle me-1 text-warning"></i> Prediction:
                     </label>
-                    <select id="prediction" name="prediction"
-                        class="form-control bg-gray-800 text-white border-gray-700">
+                    <select id="prediction" name="prediction" class="form-control bg-gray-800 text-white border-gray-700">
                         <option value="even" {% if settings_form.instance.prediction == "even" %}selected{% endif %}>Even</option>
                         <option value="odd" {% if settings_form.instance.prediction == "odd" %}selected{% endif %}>Odd</option>
                     </select>
                 </div>
 
-                <!-- 🔸 THRESHOLD -->
+                <!-- 🔸 TARGET DIGIT (used for Over/Under/Matches/Differs) -->
                 <div id="threshold-wrapper" class="mb-3" style="display: none;">
                     <label for="threshold" class="form-label text-gray-300">
-                        <i class="bi bi-123 me-1 text-info"></i> Threshold:
+                        <i class="bi bi-123 me-1 text-info"></i> Target Digit:
                     </label>
                     <input type="number" name="threshold" id="threshold"
-                        class="form-control bg-gray-800 text-white border-gray-700"
-                        value="{{ settings_form.instance.threshold|default:'' }}">
+                           class="form-control bg-gray-800 text-white border-gray-700"
+                           value="{{ settings_form.instance.threshold|default:'' }}">
                 </div>
 
-                <!-- 🔸 RECOVERY THRESHOLD -->
+                <!-- 🔸 RECOVERY THRESHOLD (Only for Over/Under) -->
                 <div id="recovery-threshold-wrapper" class="mb-3" style="display: none;">
                     <label for="recovery_threshold" class="form-label text-gray-300">
-                        <i class="bi bi-arrow-repeat me-1 text-danger"></i> With a Recovery of (Threshold):
+                        <i class="bi bi-arrow-repeat me-1 text-danger"></i> With a Recovery of (Target Digit):
                     </label>
                     <input type="number" name="recovery_threshold" id="recovery_threshold"
-                        class="form-control bg-gray-800 text-white border-gray-700"
-                        value="{{ settings_form.instance.recovery_threshold|default:'' }}">
+                           class="form-control bg-gray-800 text-white border-gray-700"
+                           value="{{ settings_form.instance.recovery_threshold|default:'' }}">
                 </div>
 
-                <div class="mb-3">
-                    {{ settings_form.ticks.label_tag }}
-                    {{ settings_form.ticks }}
-                </div>
+                <div class="mb-3">{{ settings_form.ticks.label_tag }}{{ settings_form.ticks }}</div>
+                <div class="mb-3">{{ settings_form.loss_counter.label_tag }}{{ settings_form.loss_counter }}</div>
 
-                <div class="mb-3">
-                    {{ settings_form.loss_counter.label_tag }}
-                    {{ settings_form.loss_counter }}
-                </div>
-
+                <!-- 🔸 SYMBOL -->
                 <div class="mb-3">
                     <label for="symbol-select" class="form-label text-gray-300">
                         <i class="bi bi-diagram-3-fill me-1 text-primary"></i> Symbol:
                     </label>
-                    <select id="symbol-select" name="symbol"
-                        class="form-control bg-gray-800 text-white border-gray-700">
+                    <select id="symbol-select" name="symbol" class="form-control bg-gray-800 text-white border-gray-700">
                         <optgroup label="Volatility Indices">
                             <option value="1HZ10V" {% if settings_form.instance.symbol == "1HZ10V" %}selected{% endif %}>Volatility 10 (1s) Index</option>
                             <option value="R_10" {% if settings_form.instance.symbol == "R_10" %}selected{% endif %}>Volatility 10 Index</option>
@@ -484,10 +458,7 @@
                     </select>
                 </div>
 
-                <div class="mb-3">
-                    {{ settings_form.tick_result_delay.label_tag }}
-                    {{ settings_form.tick_result_delay }}
-                </div>
+                <div class="mb-3">{{ settings_form.tick_result_delay.label_tag }}{{ settings_form.tick_result_delay }}</div>
 
                 <button class="btn btn-info w-100 mt-3" type="submit">
                     <i class="bi bi-save-fill me-1"></i> Update Settings
@@ -584,518 +555,332 @@
 
   Last Updated: 2025-07-05
 -->
-<!-- <script>
-    // ✅ Global balance update function
-    function updateBalanceUI(balance, currency) {
-        const valueEl = document.getElementById("balance-value");
-        const currencyEl = document.getElementById("balance-currency");
-
-        if (!valueEl || !currencyEl) {
-            console.warn("⚠️ Balance sub-elements not found.");
-            return;
-        }
-
-        const safeBalance = typeof balance === "number" ? balance.toFixed(2) : balance || "0.00";
-        const safeCurrency = currency || "";
-
-        valueEl.textContent = safeBalance;
-        currencyEl.textContent = safeCurrency;
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        // ✅ Update balance immediately from backend context
-        updateBalanceUI({{ balance|floatformat:2 }}, "{{ currency }}");
-
-        const marketTypeSelect = document.getElementById("market-type");
-        const predictionWrapper = document.getElementById("prediction-wrapper");
-        const thresholdWrapper = document.getElementById("threshold-wrapper");
-        const recoveryWrapper = document.getElementById("recovery-threshold-wrapper");
-
-        function togglePredictionFields() {
-            const selected = marketTypeSelect?.value;
-            if (selected === "even_odd") {
-                predictionWrapper.style.display = "block";
-                thresholdWrapper.style.display = "none";
-                recoveryWrapper.style.display = "none";
-            } else if (selected === "over" || selected === "under") {
-                predictionWrapper.style.display = "none";
-                thresholdWrapper.style.display = "block";
-                recoveryWrapper.style.display = "block";
-            } else {
-                predictionWrapper.style.display = "none";
-                thresholdWrapper.style.display = "none";
-                recoveryWrapper.style.display = "none";
-            }
-        }
-
-        if (marketTypeSelect) {
-            togglePredictionFields();
-            marketTypeSelect.addEventListener("change", togglePredictionFields);
-        }
-
-        function handleAjaxForm(formId, successMsg) {
-            const form = document.getElementById(formId);
-            if (!form) return;
-            form.addEventListener("submit", e => {
-                e.preventDefault();
-                const data = new FormData(form);
-                fetch(window.location.href, {
-                    method: "POST",
-                    headers: {
-                        "X-CSRFToken": data.get("csrfmiddlewaretoken"),
-                        "X-Requested-With": "XMLHttpRequest"
-                    },
-                    body: data
-                })
-                .then(res => res.json())
-                .then(json => alert(json.message || successMsg))
-                .catch(err => {
-                    console.error("AJAX error:", err);
-                    alert("AJAX error: " + err.message);
-                });
-            });
-        }
-
-        handleAjaxForm("token-form", "Token updated!");
-        handleAjaxForm("settings-form", "Settings updated!");
-
-        let analysisSocket = null;
-        const startBtn = document.getElementById("start-analysis-btn");
-        const stopBtn = document.getElementById("stop-analysis-btn");
-        const symbolSelect = document.getElementById("analysis-symbol-select");
-        const lastXTicks = document.getElementById("last-x-ticks");
-        const analysisFeed = document.getElementById("analysis-feed");
-
-        const evenOddChart = new Chart(document.getElementById('evenOddChart'), {
-            type: 'bar',
-            data: {
-                labels: ['Even', 'Odd'],
-                datasets: [{
-                    label: 'Last Digit Count',
-                    data: [0, 0],
-                    backgroundColor: ['#3b82f6', '#ef4444']
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-
-        function appendToFeed(msg) {
-            const p = document.createElement("p");
-            p.innerHTML = msg;
-            analysisFeed.appendChild(p);
-            analysisFeed.scrollTop = analysisFeed.scrollHeight;
-        }
-
-        function updateEvenOddChart({ even, odd }) {
-            evenOddChart.data.datasets[0].data = [even, odd];
-            evenOddChart.update();
-
-            const total = even + odd;
-            const result = document.getElementById("weight-result");
-            let evenPct = 0, oddPct = 0;
-            if (total > 0) {
-                evenPct = ((even / total) * 100).toFixed(2);
-                oddPct = ((odd / total) * 100).toFixed(2);
-                result.textContent = even > odd
-                    ? `Even digits dominate with ${evenPct}%`
-                    : odd > even
-                    ? `Odd digits dominate with ${oddPct}%`
-                    : "Even and Odd are perfectly balanced.";
-            } else {
-                result.textContent = "Insufficient data to calculate.";
-            }
-
-            document.getElementById("even-percentage").innerText = `Even: ${evenPct}%`;
-            document.getElementById("odd-percentage").innerText = `Odd: ${oddPct}%`;
-        }
-
-        function startAnalysisSocket(symbol, tickCount) {
-            analysisSocket = new WebSocket(
-                (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wss/analysis/"
-            );
-            window.digitBuffer = [];
-
-            analysisSocket.onopen = () => {
-                appendToFeed("🔍 Connected. Analysis starting...");
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-            };
-
-            analysisSocket.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (data.type === "analysis_update") {
-                        appendToFeed(`Tick: ${data.tick.quote} | Last Digit: ${data.last_digit}`);
-                        const digit = parseInt(data.last_digit);
-                        if (!isNaN(digit)) {
-                            window.digitBuffer.push(digit);
-                            if (window.digitBuffer.length > tickCount) {
-                                window.digitBuffer.shift();
-                            }
-                            const even = window.digitBuffer.filter(d => d % 2 === 0).length;
-                            const odd = window.digitBuffer.length - even;
-                            updateEvenOddChart({ even, odd });
-                        }
-                    } else if (data.type === "balance_update") {
-                        updateBalanceUI(data.balance, data.currency);
-                    } else if (data.error) {
-                        appendToFeed("❌ " + data.error);
-                    }
-                } catch (err) {
-                    console.error("Parse error:", e.data);
-                }
-            };
-
-            analysisSocket.onclose = () => {
-                appendToFeed("🔌 Analysis socket closed");
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-            };
-        }
-
-        startBtn.onclick = () => {
-            const symbol = symbolSelect.value;
-            const ticks = parseInt(lastXTicks.value);
-            localStorage.setItem("symbol-select", symbol);
-            localStorage.setItem("last-x-ticks", ticks);
-            startAnalysisSocket(symbol, ticks);
-        };
-
-        stopBtn.onclick = () => {
-            if (analysisSocket) {
-                analysisSocket.send(JSON.stringify({ command: "stop_analysis" }));
-                analysisSocket.close();
-            }
-        };
-
-        const storedSymbol = localStorage.getItem("symbol-select");
-        const storedTicks = localStorage.getItem("last-x-ticks");
-        if (storedSymbol) symbolSelect.value = storedSymbol;
-        if (storedTicks) lastXTicks.value = storedTicks;
-    });
-</script>
- -->
 <script>
-    function updateBalanceUI(balance, currency) {
-        const valueEl = document.getElementById("balance-value");
-        const currencyEl = document.getElementById("balance-currency");
+function updateBalanceUI(balance, currency) {
+    const valueEl = document.getElementById("balance-value");
+    const currencyEl = document.getElementById("balance-currency");
 
-        if (!valueEl || !currencyEl) {
-            console.warn("⚠️ Balance sub-elements not found.");
-            return;
-        }
-
-        const safeBalance = typeof balance === "number" ? balance.toFixed(2) : balance || "0.00";
-        const safeCurrency = currency || "";
-
-        valueEl.textContent = safeBalance;
-        currencyEl.textContent = safeCurrency;
+    if (!valueEl || !currencyEl) {
+        console.warn("⚠️ Balance sub-elements not found.");
+        return;
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        updateBalanceUI({{ balance|floatformat:2 }}, "{{ currency }}");
+    const safeBalance = typeof balance === "number" ? balance.toFixed(2) : balance || "0.00";
+    const safeCurrency = currency || "";
 
-        const marketTypeSelect = document.getElementById("market-type");
-        const predictionWrapper = document.getElementById("prediction-wrapper");
-        const thresholdWrapper = document.getElementById("threshold-wrapper");
-        const recoveryWrapper = document.getElementById("recovery-threshold-wrapper");
+    valueEl.textContent = safeBalance;
+    currencyEl.textContent = safeCurrency;
+}
 
-        function togglePredictionFields() {
-            const selected = marketTypeSelect?.value;
-            if (selected === "even_odd") {
-                predictionWrapper.style.display = "block";
-                thresholdWrapper.style.display = "none";
-                recoveryWrapper.style.display = "none";
-            } else if (selected === "over" || selected === "under") {
-                predictionWrapper.style.display = "none";
-                thresholdWrapper.style.display = "block";
-                recoveryWrapper.style.display = "block";
-            } else {
-                predictionWrapper.style.display = "none";
-                thresholdWrapper.style.display = "none";
-                recoveryWrapper.style.display = "none";
-            }
+document.addEventListener('DOMContentLoaded', () => {
+    updateBalanceUI({{ balance|floatformat:2 }}, "{{ currency }}");
+
+    const marketTypeSelect = document.getElementById("market-type");
+    const predictionWrapper = document.getElementById("prediction-wrapper");
+    const thresholdWrapper = document.getElementById("threshold-wrapper");
+    const recoveryWrapper = document.getElementById("recovery-threshold-wrapper");
+
+    function togglePredictionFields() {
+        const selected = marketTypeSelect?.value;
+        if (selected === "even_odd") {
+            predictionWrapper.style.display = "block";
+            thresholdWrapper.style.display = "none";
+            recoveryWrapper.style.display = "none";
+        } else if (selected === "over" || selected === "under") {
+            predictionWrapper.style.display = "none";
+            thresholdWrapper.style.display = "block";
+            recoveryWrapper.style.display = "block";
+        } else if (selected === "matches" || selected === "differs") {
+            predictionWrapper.style.display = "none";
+            thresholdWrapper.style.display = "block";
+            recoveryWrapper.style.display = "none";
+        } else {
+            predictionWrapper.style.display = "none";
+            thresholdWrapper.style.display = "none";
+            recoveryWrapper.style.display = "none";
         }
+    }
 
-        if (marketTypeSelect) {
-            togglePredictionFields();
-            marketTypeSelect.addEventListener("change", togglePredictionFields);
-        }
+    if (marketTypeSelect) {
+        togglePredictionFields();
+        marketTypeSelect.addEventListener("change", togglePredictionFields);
+    }
 
-        function handleAjaxForm(formId, successMsg) {
-            const form = document.getElementById(formId);
-            if (!form) return;
-            form.addEventListener("submit", e => {
-                e.preventDefault();
-                const data = new FormData(form);
-                fetch(window.location.href, {
-                    method: "POST",
-                    headers: {
-                        "X-CSRFToken": data.get("csrfmiddlewaretoken"),
-                        "X-Requested-With": "XMLHttpRequest"
-                    },
-                    body: data
-                })
-                .then(res => res.json())
-                .then(json => alert(json.message || successMsg))
-                .catch(err => {
-                    console.error("AJAX error:", err);
-                    alert("AJAX error: " + err.message);
-                });
+    function handleAjaxForm(formId, successMsg) {
+        const form = document.getElementById(formId);
+        if (!form) return;
+        form.addEventListener("submit", e => {
+            e.preventDefault();
+            const data = new FormData(form);
+            fetch(window.location.href, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": data.get("csrfmiddlewaretoken"),
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                body: data
+            })
+            .then(res => res.json())
+            .then(json => alert(json.message || successMsg))
+            .catch(err => {
+                console.error("AJAX error:", err);
+                alert("AJAX error: " + err.message);
             });
-        }
-
-        handleAjaxForm("token-form", "Token updated!");
-        handleAjaxForm("settings-form", "Settings updated!");
-
-        let analysisSocket = null;
-        const startBtn = document.getElementById("start-analysis-btn");
-        const stopBtn = document.getElementById("stop-analysis-btn");
-        const symbolSelect = document.getElementById("analysis-symbol-select");
-        const lastXTicks = document.getElementById("last-x-ticks");
-        const analysisFeed = document.getElementById("analysis-feed");
-
-        const evenOddChart = new Chart(document.getElementById('evenOddChart'), {
-            type: 'bar',
-            data: {
-                labels: ['Even', 'Odd'],
-                datasets: [{
-                    label: 'Last Digit Count',
-                    data: [0, 0],
-                    backgroundColor: ['#3b82f6', '#ef4444']
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: { y: { beginAtZero: true } }
-            }
         });
+    }
 
-        function appendToFeed(msg) {
-            const p = document.createElement("p");
-            p.innerHTML = msg;
-            analysisFeed.appendChild(p);
-            analysisFeed.scrollTop = analysisFeed.scrollHeight;
+    handleAjaxForm("token-form", "Token updated!");
+    handleAjaxForm("settings-form", "Settings updated!");
+
+    let analysisSocket = null;
+    const startBtn = document.getElementById("start-analysis-btn");
+    const stopBtn = document.getElementById("stop-analysis-btn");
+    const symbolSelect = document.getElementById("analysis-symbol-select");
+    const lastXTicks = document.getElementById("last-x-ticks");
+    const analysisFeed = document.getElementById("analysis-feed");
+
+    const evenOddChart = new Chart(document.getElementById('evenOddChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Even', 'Odd'],
+            datasets: [{
+                label: 'Last Digit Count',
+                data: [0, 0],
+                backgroundColor: ['#3b82f6', '#ef4444']
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: { y: { beginAtZero: true } }
         }
-
-        function updateEvenOddChart({ even, odd }) {
-            evenOddChart.data.datasets[0].data = [even, odd];
-            evenOddChart.update();
-
-            const total = even + odd;
-            const result = document.getElementById("weight-result");
-            let evenPct = 0, oddPct = 0;
-            if (total > 0) {
-                evenPct = ((even / total) * 100).toFixed(2);
-                oddPct = ((odd / total) * 100).toFixed(2);
-                result.textContent = even > odd
-                    ? `Even digits dominate with ${evenPct}%`
-                    : odd > even
-                    ? `Odd digits dominate with ${oddPct}%`
-                    : "Even and Odd are perfectly balanced.";
-            } else {
-                result.textContent = "Insufficient data to calculate.";
-            }
-
-            document.getElementById("even-percentage").innerText = `Even: ${evenPct}%`;
-            document.getElementById("odd-percentage").innerText = `Odd: ${oddPct}%`;
-        }
-
-        function startAnalysisSocket(symbol, tickCount) {
-            analysisSocket = new WebSocket(
-                (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wss/analysis/"
-            );
-            window.digitBuffer = [];
-
-            analysisSocket.onopen = () => {
-                appendToFeed("🔍 Connected. Analysis starting...");
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-            };
-
-            analysisSocket.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (data.type === "analysis_update") {
-                        appendToFeed(`Tick: ${data.tick.quote} | Last Digit: ${data.last_digit}`);
-                        const digit = parseInt(data.last_digit);
-                        if (!isNaN(digit)) {
-                            window.digitBuffer.push(digit);
-                            if (window.digitBuffer.length > tickCount) {
-                                window.digitBuffer.shift();
-                            }
-                            const even = window.digitBuffer.filter(d => d % 2 === 0).length;
-                            const odd = window.digitBuffer.length - even;
-                            updateEvenOddChart({ even, odd });
-                        }
-                    } else if (data.type === "balance_update") {
-                        updateBalanceUI(data.balance, data.currency);
-                    } else if (data.error) {
-                        appendToFeed("❌ " + data.error);
-                    }
-                } catch (err) {
-                    console.error("Parse error:", e.data);
-                }
-            };
-
-            analysisSocket.onclose = () => {
-                appendToFeed("🔌 Analysis socket closed");
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-            };
-        }
-
-        startBtn.onclick = () => {
-            const symbol = symbolSelect.value;
-            const ticks = parseInt(lastXTicks.value);
-            localStorage.setItem("symbol-select", symbol);
-            localStorage.setItem("last-x-ticks", ticks);
-            startAnalysisSocket(symbol, ticks);
-        };
-
-        stopBtn.onclick = () => {
-            if (analysisSocket) {
-                analysisSocket.send(JSON.stringify({ command: "stop_analysis" }));
-                analysisSocket.close();
-            }
-        };
-
-        const storedSymbol = localStorage.getItem("symbol-select");
-        const storedTicks = localStorage.getItem("last-x-ticks");
-        if (storedSymbol) symbolSelect.value = storedSymbol;
-        if (storedTicks) lastXTicks.value = storedTicks;
     });
-</script>
 
+    function appendToFeed(msg) {
+        const p = document.createElement("p");
+        p.innerHTML = msg;
+        analysisFeed.appendChild(p);
+        analysisFeed.scrollTop = analysisFeed.scrollHeight;
+    }
+
+    function updateEvenOddChart({ even, odd }) {
+        evenOddChart.data.datasets[0].data = [even, odd];
+        evenOddChart.update();
+
+        const total = even + odd;
+        const result = document.getElementById("weight-result");
+        let evenPct = 0, oddPct = 0;
+        if (total > 0) {
+            evenPct = ((even / total) * 100).toFixed(2);
+            oddPct = ((odd / total) * 100).toFixed(2);
+            result.textContent = even > odd
+                ? `Even digits dominate with ${evenPct}%`
+                : odd > even
+                ? `Odd digits dominate with ${oddPct}%`
+                : "Even and Odd are perfectly balanced.";
+        } else {
+            result.textContent = "Insufficient data to calculate.";
+        }
+
+        document.getElementById("even-percentage").innerText = `Even: ${evenPct}%`;
+        document.getElementById("odd-percentage").innerText = `Odd: ${oddPct}%`;
+    }
+
+    function startAnalysisSocket(symbol, tickCount) {
+        analysisSocket = new WebSocket(
+            (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wss/analysis/"
+        );
+        window.digitBuffer = [];
+
+        analysisSocket.onopen = () => {
+            appendToFeed("🔍 Connected. Analysis starting...");
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+        };
+
+        analysisSocket.onmessage = (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                if (data.type === "analysis_update") {
+                    appendToFeed(`Tick: ${data.tick.quote} | Last Digit: ${data.last_digit}`);
+                    const digit = parseInt(data.last_digit);
+                    if (!isNaN(digit)) {
+                        window.digitBuffer.push(digit);
+                        if (window.digitBuffer.length > tickCount) {
+                            window.digitBuffer.shift();
+                        }
+                        const even = window.digitBuffer.filter(d => d % 2 === 0).length;
+                        const odd = window.digitBuffer.length - even;
+                        updateEvenOddChart({ even, odd });
+                    }
+                } else if (data.type === "balance_update") {
+                    updateBalanceUI(data.balance, data.currency);
+                } else if (data.error) {
+                    appendToFeed("❌ " + data.error);
+                }
+            } catch (err) {
+                console.error("Parse error:", e.data);
+            }
+        };
+
+        analysisSocket.onclose = () => {
+            appendToFeed("🔌 Analysis socket closed");
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        };
+    }
+
+    startBtn.onclick = () => {
+        const symbol = symbolSelect.value;
+        const ticks = parseInt(lastXTicks.value);
+        localStorage.setItem("symbol-select", symbol);
+        localStorage.setItem("last-x-ticks", ticks);
+        startAnalysisSocket(symbol, ticks);
+    };
+
+    stopBtn.onclick = () => {
+        if (analysisSocket) {
+            analysisSocket.send(JSON.stringify({ command: "stop_analysis" }));
+            analysisSocket.close();
+        }
+    };
+
+    const storedSymbol = localStorage.getItem("symbol-select");
+    const storedTicks = localStorage.getItem("last-x-ticks");
+    if (storedSymbol) symbolSelect.value = storedSymbol;
+    if (storedTicks) lastXTicks.value = storedTicks;
+});
+</script>
 
     
 <!-- Script for handling bot start/stop actions via WebSocket -->
 <script>
-    (function() {
-        const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://')
-            + location.host + '/wss/bot/';
-        console.log('🌐 Connecting ', WS_URL);
-        const botSocket = new WebSocket(WS_URL);
+(function() {
+    const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/wss/bot/';
+    console.log('🌐 Connecting ', WS_URL);
+    const botSocket = new WebSocket(WS_URL);
 
-        let totalProfit = 0, winCount = 0, lossCount = 0;
-        const logEl     = document.getElementById('bot-log');
-        const profitEl  = document.getElementById('bot-profit');
-        const winsEl    = document.getElementById('bot-wins');
-        const lossesEl  = document.getElementById('bot-losses');
-        const statusEl  = document.getElementById('bot-status');
+    let totalProfit = 0, winCount = 0, lossCount = 0;
+    const logEl     = document.getElementById('bot-log');
+    const profitEl  = document.getElementById('bot-profit');
+    const winsEl    = document.getElementById('bot-wins');
+    const lossesEl  = document.getElementById('bot-losses');
+    const statusEl  = document.getElementById('bot-status');
 
-        const fmtCurrency = n => '$' + n.toFixed(2);
-        function clearState() {
-            totalProfit = 0; winCount = 0; lossCount = 0;
-            profitEl.textContent = fmtCurrency(0);
-            winsEl.textContent = '0';
-            lossesEl.textContent = '0';
-            logEl.innerHTML = '';
+    const fmtCurrency = n => '$' + n.toFixed(2);
+    function clearState() {
+        totalProfit = 0; winCount = 0; lossCount = 0;
+        profitEl.textContent = fmtCurrency(0);
+        winsEl.textContent = '0';
+        lossesEl.textContent = '0';
+        logEl.innerHTML = '';
+    }
+
+    function appendHTML(html) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        logEl.appendChild(wrapper);
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    botSocket.addEventListener('open', () => {
+        appendHTML(`<span class="text-blue-300">🔌 Connected to Bot</span>`);
+    });
+
+    botSocket.addEventListener('message', (evt) => {
+        let msg;
+        try { msg = JSON.parse(evt.data); }
+        catch {
+            appendHTML(`<span class="text-yellow-300">⚠️ ${evt.data}</span>`);
+            return;
         }
-        function appendHTML(html) {
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = html;
-            logEl.appendChild(wrapper);
-            logEl.scrollTop = logEl.scrollHeight;
+
+        if (msg.type === "balance_update") {
+            updateBalanceUI(msg.balance, msg.currency);
+            return;
         }
 
-        botSocket.addEventListener('open', () => {
-            appendHTML(`<span class="text-blue-300">🔌 Connected to Bot</span>`);
-        });
-
-        botSocket.addEventListener('message', (evt) => {
-            let msg;
-            try { msg = JSON.parse(evt.data); }
-            catch {
-                appendHTML(`<span class="text-yellow-300">⚠️ ${evt.data}</span>`);
-                return;
-            }
-
-            // ✅ Skip balance updates (handled elsewhere)
-            // if (msg.type === "balance_update") return;
-            if (msg.type === "balance_update") {
-                updateBalanceUI(msg.balance, msg.currency);  // ✅ Use existing function to update balance UI
-                return;
-            }
-
-            if (msg.message) {
-                appendHTML(`<span class="text-gray-400">${msg.message}</span>`);
-                if (msg.message.includes('Bot started')) {
-                    clearState();
-                    statusEl.textContent = 'Running';
-                    statusEl.className = 'text-green-400 font-mono';
+        if (msg.message) {
+            if (msg.message.includes("Bot starting on")) {
+                const match = msg.message.match(/\((.*?)\)/);
+                if (match && match[1]) {
+                    appendHTML(`<span class="text-yellow-300">📊 Market Type: ${match[1]}</span>`);
                 }
-                if (msg.message.includes('Bot stopped')) {
-                    statusEl.textContent = 'Stopped';
-                    statusEl.className = 'text-red-400 font-mono';
-                }
-                return;
             }
 
-            if (msg.type === 'tick') {
-                appendHTML(`<span class="text-gray-500">⏱ Tick</span>`);
-                return;
+            appendHTML(`<span class="text-gray-400">${msg.message}</span>`);
+            if (msg.message.includes('Bot started')) {
+                clearState();
+                statusEl.textContent = 'Running';
+                statusEl.className = 'text-green-400 font-mono';
             }
+            if (msg.message.includes('Bot stopped')) {
+                statusEl.textContent = 'Stopped';
+                statusEl.className = 'text-red-400 font-mono';
+            }
+            return;
+        }
 
-            if (msg.type === 'bot_update') {
-                const { contract_id, stake, profit, result, buy_time, sell_time } = msg.data;
-                totalProfit += profit;
-                profitEl.textContent = fmtCurrency(totalProfit);
-                if (result === 'win') winCount++;
-                else lossCount++;
-                winsEl.textContent = winCount;
-                lossesEl.textContent = lossCount;
+        if (msg.type === 'tick') {
+            appendHTML(`<span class="text-gray-500">⏱ Tick</span>`);
+            return;
+        }
 
-                const buyT  = new Date(buy_time * 1000).toLocaleTimeString();
-                const sellT = new Date(sell_time * 1000).toLocaleTimeString();
-                const color = result === 'win' ? 'border-green-600' : 'border-red-600';
-                const emoji = result === 'win' ? '✅' : '❌';
-                const profitLabel = fmtCurrency(profit);
+        if (msg.type === 'bot_update') {
+            const { contract_id, stake, profit, result, buy_time, sell_time } = msg.data;
+            totalProfit += profit;
+            profitEl.textContent = fmtCurrency(totalProfit);
+            if (result === 'win') winCount++;
+            else lossCount++;
+            winsEl.textContent = winCount;
+            lossesEl.textContent = lossCount;
 
-                appendHTML(`
-                    <div class="p-2 border-l-4 ${color} bg-gray-800 rounded space-y-1">
-                        <div class="flex justify-between text-sm font-mono">
-                            <span>${emoji} ${contract_id}</span>
-                            <span>Buy: ${buyT}</span>
-                            <span>Sell: ${sellT}</span>
-                        </div>
-                        <div class="text-gray-300 text-sm">
-                            Stake: ${stake}, P/L: 
-                            <span class="${result==='win'?'text-green-400':'text-red-400'}">
-                            ${profitLabel}
-                            </span>
-                        </div>
+            const buyT  = new Date(buy_time * 1000).toLocaleTimeString();
+            const sellT = new Date(sell_time * 1000).toLocaleTimeString();
+            const color = result === 'win' ? 'border-green-600' : 'border-red-600';
+            const emoji = result === 'win' ? '✅' : '❌';
+            const profitLabel = fmtCurrency(profit);
+
+            appendHTML(`
+                <div class="p-2 border-l-4 ${color} bg-gray-800 rounded space-y-1">
+                    <div class="flex justify-between text-sm font-mono">
+                        <span>${emoji} ${contract_id}</span>
+                        <span>Buy: ${buyT}</span>
+                        <span>Sell: ${sellT}</span>
                     </div>
-                `);
-                return;
-            }
+                    <div class="text-gray-300 text-sm">
+                        Stake: ${stake}, P/L: 
+                        <span class="${result === 'win' ? 'text-green-400' : 'text-red-400'}">
+                            ${profitLabel}
+                        </span>
+                    </div>
+                </div>
+            `);
+            return;
+        }
 
-            appendHTML(`<span class="text-yellow-300">ℹ️ ${evt.data}</span>`);
-        });
+        appendHTML(`<span class="text-yellow-300">ℹ️ ${evt.data}</span>`);
+    });
 
-        botSocket.addEventListener('close', () => {
-            appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot</span>`);
-            statusEl.textContent = 'Disconnected';
-            statusEl.className = 'text-red-500 font-mono';
-        });
+    botSocket.addEventListener('close', () => {
+        appendHTML(`<span class="text-red-500">🔌 Disconnected from Bot</span>`);
+        statusEl.textContent = 'Disconnected';
+        statusEl.className = 'text-red-500 font-mono';
+    });
 
-        botSocket.addEventListener('error', (err) => {
-            appendHTML(`<span class="text-red-500">❌ Server error</span>`);
-            console.error(err);
-        });
+    botSocket.addEventListener('error', (err) => {
+        appendHTML(`<span class="text-red-500">❌ Server error</span>`);
+        console.error(err);
+    });
 
-        document.getElementById('start-bot-btn')
-            .addEventListener('click', () =>
-                botSocket.readyState === 1 && botSocket.send(JSON.stringify({ command: 'start_bot' }))
-            );
-        document.getElementById('stop-bot-btn')
-            .addEventListener('click', () =>
-                botSocket.readyState === 1 && botSocket.send(JSON.stringify({ command: 'stop_bot' }))
-            );
-    })();
+    document.getElementById('start-bot-btn')
+        .addEventListener('click', () =>
+            botSocket.readyState === 1 && botSocket.send(JSON.stringify({ command: 'start_bot' }))
+        );
+    document.getElementById('stop-bot-btn')
+        .addEventListener('click', () =>
+            botSocket.readyState === 1 && botSocket.send(JSON.stringify({ command: 'stop_bot' }))
+        );
+})();
 </script>
 
 

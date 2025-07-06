@@ -1,3 +1,5 @@
+# user_config/models.py
+
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -10,6 +12,8 @@ MARKET_CHOICES = [
     ('even_odd', 'Even/Odd'),
     ('over', 'Over'),
     ('under', 'Under'),
+    ('matches', 'Matches'),
+    ('differs', 'Differs'),
 ]
 
 SYMBOL_CHOICES = [
