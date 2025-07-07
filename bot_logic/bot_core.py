@@ -15,7 +15,6 @@ from bot_logic.markets.even_odd import EvenOddStrategy
 from bot_logic.markets.over_under import OverUnderStrategy
 from bot_logic.markets.matches_differs import MatchesDiffersStrategy
 
-
 logger = logging.getLogger(__name__)
 SAFETY_MARGIN = 0.003
 
@@ -43,8 +42,6 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
     await asyncio.to_thread(BotStatus.objects.filter(user_id=user_id).update, is_running=True)
 
     msg = f"🚀 Bot starting on {bot_settings.symbol} [{bot_settings.market_type}]"
-
-    # Optional: Add prediction info only for relevant types
     if bot_settings.market_type == "even_odd":
         msg += f" with prediction: {bot_settings.prediction.lower()}"
     elif bot_settings.market_type in ["over", "under"]:
@@ -68,7 +65,7 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         elif balance >= take_threshold:
             stop_event.set()
             await send_update_callback({"message": "🎯 Take-profit reached. Bot stopped."})
-       
+
         await send_update_callback({
             "type": "balance_update",
             "balance": balance_data["balance"],
@@ -88,9 +85,12 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
     pending_trades = {}
     evaluation_tick_delay = getattr(bot_settings, 'tick_result_delay', 1)
 
-    # Strategy: based on market_type
+    # 🎯 Strategy init
     if bot_settings.market_type == "even_odd":
-        config = {"value": bot_settings.prediction.lower()}
+        config = {
+            "value": bot_settings.prediction.lower(),
+            "recovery_threshold": bot_settings.recovery_threshold if bot_settings.recovery_threshold in ['even', 'odd'] else None
+        }
         market_handler = EvenOddStrategy(config)
     elif bot_settings.market_type in ["over", "under"]:
         config = {
@@ -103,13 +103,13 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         config = {
             "value": bot_settings.market_type,
             "target_digit": bot_settings.threshold,
+            "recovery_threshold": bot_settings.recovery_threshold,
         }
         market_handler = MatchesDiffersStrategy(config)
     else:
         raise ValueError(f"Unsupported market type: {bot_settings.market_type}")
 
-
-
+    # 🟢 Start main loop
     async for tick in get_live_ticks(user.deriv_token, bot_settings.symbol):
         if stop_event.is_set() or not state.running:
             await cancel_pending_contracts(trade_manager, pending_trades, send_update_callback)
@@ -141,6 +141,14 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
                     else:
                         state.enqueue_stake(bot_settings.stake)
 
+                # 🛠 Update recovery toggle AFTER result check
+                if hasattr(market_handler, "use_recovery"):
+                    market_handler.use_recovery = (
+                        state.loss_counter > 0 and
+                        getattr(market_handler, "recovery_threshold", None) is not None
+                    )
+                    logger.debug(f"[Recovery] use_recovery={market_handler.use_recovery} (losses={state.loss_counter})")
+
                 profit = calculate_profit(info["stake"], is_loss)
                 trade_data = {
                     "contract_id": pcid,
@@ -164,26 +172,12 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         if state.awaiting_result:
             continue
 
-        # 🔁 Update use_recovery dynamically before placing the trade
-        if isinstance(market_handler, OverUnderStrategy):
-            market_handler.use_recovery = (
-                state.loss_counter > 0 and
-                bot_settings.market_type in ["over", "under"]
-            )
-
         stake = state.get_next_priority_stake(bot_settings.stake)
         await asyncio.sleep(SAFETY_MARGIN)
 
         prediction_str = market_handler.get_prediction_string()
         proposal = await trade_manager.propose_contract(bot_settings.symbol, stake, prediction_str)
         buy_info = await trade_manager.buy_contract(proposal["proposal_id"], proposal["ask_price"])
-        # try:
-        #     buy_info = await trade_manager.buy_contract(proposal["proposal_id"], proposal["ask_price"])
-        # except Exception as e:
-        #     logger.warning(f"⚠️ Buy attempt failed: {e}. Retrying with new proposal...")
-        #     await asyncio.sleep(0.01)  # Short delay before retry
-        #     proposal = await trade_manager.propose_contract(bot_settings.symbol, stake, prediction_str)
-        #     buy_info = await trade_manager.buy_contract(proposal["proposal_id"], proposal["ask_price"])                
         cid = buy_info["contract_id"]
         buy_epoch = tick["epoch"]
 

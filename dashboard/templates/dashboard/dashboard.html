@@ -424,10 +424,10 @@
                            value="{{ settings_form.instance.threshold|default:'' }}">
                 </div>
 
-                <!-- 🔸 RECOVERY THRESHOLD (Only for Over/Under) -->
+                <!-- 🔸 RECOVERY THRESHOLD (Used in Over/Under/Matches/Differs if configured) -->
                 <div id="recovery-threshold-wrapper" class="mb-3" style="display: none;">
                     <label for="recovery_threshold" class="form-label text-gray-300">
-                        <i class="bi bi-arrow-repeat me-1 text-danger"></i> With a Recovery of (Target Digit):
+                        <i class="bi bi-arrow-repeat me-1 text-danger"></i> Recovery Threshold (Target Digit):
                     </label>
                     <input type="number" name="recovery_threshold" id="recovery_threshold"
                            class="form-control bg-gray-800 text-white border-gray-700"
@@ -468,7 +468,7 @@
     </div>
 </div>
 
-
+<!-- 
 <div class="mb-4">
     <h3 class="text-white">Real-time Even/Odd Analysis</h3>
 
@@ -514,7 +514,8 @@
         <h5 class="text-white">Weight Analysis</h5>
         <p id="weight-result">Awaiting data...</p>
     </div>
-</div>
+</div> -->
+
 
 <div class="col-md-6 mb-4">
     <div class="card shadow-sm bg-gray-900 text-white border-0">
@@ -525,7 +526,10 @@
                 <input type="hidden" name="action" value="update_token">
 
                 <label for="id_deriv_token" class="form-label text-gray-300">Deriv API Token:</label>
-                {{ profile_form.deriv_token }}
+
+                <div style="position: relative;">
+                    {{ profile_form.deriv_token }}
+                </div>
 
                 <button type="submit" class="btn btn-primary mt-2">Save Token</button>
             </form>
@@ -536,6 +540,32 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const input = document.querySelector("#id_deriv_token");
+    if (!input) return;
+
+    const fullValue = input.value;
+    if (fullValue.length > 4) {
+        const visible = fullValue.slice(0, 4);
+        const masked = "•".repeat(fullValue.length - 4);
+        input.value = visible + masked;
+    }
+
+    input.addEventListener("focus", function () {
+        input.type = "password";
+    });
+
+    input.addEventListener("blur", function () {
+        input.type = "text";
+        const fullValue = input.value;
+        if (fullValue.length > ) {
+            input.value = fullValue.slice(0, 4) + "•".repeat(fullValue.length - 4);
+        }
+    });
+});
+</script>
 
 
 <!--
@@ -593,7 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (selected === "matches" || selected === "differs") {
             predictionWrapper.style.display = "none";
             thresholdWrapper.style.display = "block";
-            recoveryWrapper.style.display = "none";
+            recoveryWrapper.style.display = "block";
         } else {
             predictionWrapper.style.display = "none";
             thresholdWrapper.style.display = "none";
@@ -886,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <footer class="text-center mt-5 mb-10">
     <p class="text-gray-600 hover:text-orange-400 transition-all">
-        © 2025 <span class="text-orange-500 font-mono">THE GENESIS v7.1</span>
+        © 2025 <span class="text-orange-500 font-mono">THE GENESIS v7.8</span>
     </p>
     <div class="mt-2 flex justify-center gap-3">
         <i class="bi bi-currency-bitcoin text-yellow-500 text-xl animate-pulse"></i>
