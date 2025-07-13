@@ -174,8 +174,12 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
 
         last_digit = tick["last_digit"]
 
-        # 🚦 Skip trade unless FSM allows it
-        if hasattr(market_handler, "should_trade") and not market_handler.should_trade(last_digit):
+        # 🚦 Skip trade unless FSM allows it, unless in aggressive mode
+        if (
+            hasattr(market_handler, "should_trade")
+            and not market_handler.is_in_aggressive_mode()
+            and not market_handler.should_trade(last_digit)
+        ):
             continue
 
         stake = state.get_next_priority_stake(bot_settings.stake)
