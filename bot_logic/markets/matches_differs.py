@@ -59,3 +59,6 @@ class MatchesDiffersStrategy:
                 self.active_trading = False
 
         return is_win
+        
+    def is_in_aggressive_mode(self):
+        return self.active_trading
