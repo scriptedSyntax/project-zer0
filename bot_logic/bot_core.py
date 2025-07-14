@@ -18,6 +18,7 @@ from bot_logic.markets.matches_differs import MatchesDiffersStrategy
 logger = logging.getLogger(__name__)
 SAFETY_MARGIN = 0.003
 
+
 async def cancel_pending_contracts(trade_manager, pending_trades, send_update_callback):
     if not pending_trades:
         logger.info("No pending trades to cancel.")
@@ -30,10 +31,12 @@ async def cancel_pending_contracts(trade_manager, pending_trades, send_update_ca
         successful_cancels = sum(1 for r in results if r is True)
         logger.info(f"✅ Successfully cancelled {successful_cancels}/{len(cancel_tasks)} contracts")
 
+
 def calculate_profit(stake: float, is_loss: bool) -> float:
     profit = -stake if is_loss else stake
     logger.debug(f"Calculated profit: {profit} (Loss: {is_loss})")
     return profit
+
 
 async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callback, bot_mode=None):
     logger.info(f"Starting bot for user_id={user_id}")
@@ -122,7 +125,6 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
     prediction_digit = int(bot_settings.threshold)
 
     async for tick in get_live_ticks(user.deriv_token, bot_settings.symbol):
-        trade_result_processed = False  # 👈 Track if this tick evaluated a contract
         logger.info(f"[BOT TICK] Received tick: epoch={tick['epoch']}, quote={tick['quote']}, last_digit={tick['last_digit']}")
         logger.debug(f"Received tick: {tick}")
         if stop_event.is_set() or not state.running:
@@ -186,8 +188,6 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
                 })
                 to_remove.append(pcid)
                 state.awaiting_result = False
-                # how different was I from the version of me you imagined?
-                trade_result_processed = True  # 👈 Mark that this tick closed a contract
 
         for pcid in to_remove:
             logger.debug(f"Removing completed trade from pending: {pcid}")
@@ -195,46 +195,28 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
 
         last_digit = tick["last_digit"]
 
-        # # 🔒 Prevent re-triggering trade cycle on the tick that closed a contract
-        # if trade_result_processed:
-        #     logger.debug("⛔ Skipping prediction check on trade-result tick.")
-        #     continue
-        
-        # Handle prediction digit detection
         if state.waiting_for_prediction and last_digit == prediction_digit:
-            # Prevent false trigger: skip if the same digit caused a loss **and**
-            # this tick was used to close the trade that lost
-            if trade_result_processed and last_digit == state.last_loss_digit:
-                logger.debug("⛔ Trade-closure tick matches loss digit — ignoring as prediction trigger.")
-                continue
             if state.last_loss_digit is None:
-                logger.info("First prediction match (no previous loss). Waiting one tick before trading.")
+                logger.info("No loss digit set — allowing trade.")
                 state.waiting_for_prediction = False
-                state.first_trade_pending = True
-                continue  # Skip this tick
+                state.prediction_triggered = True
             elif last_digit == state.last_loss_digit:
                 if not state.loss_digit_seen_again:
                     state.loss_digit_seen_again = True
                     logger.debug("First reappearance of loss digit. Waiting for second.")
                 else:
-                    logger.info("Second reappearance of loss digit. Waiting one tick before trading.")
+                    logger.info("Second reappearance of loss digit. Restarting trading.")
                     state.waiting_for_prediction = False
-                    state.first_trade_pending = True
-                continue  # Skip this tick
+                    state.prediction_triggered = True
             else:
-                logger.info("Different prediction digit than loss digit — waiting one tick before trading.")
+                logger.info("Different prediction digit than loss digit — resetting wait.")
                 state.waiting_for_prediction = False
-                state.first_trade_pending = True
+                state.prediction_triggered = True
+
+            logger.info(f"🎯 Prediction {prediction_digit} detected. Starting trade cycle...")
+            await send_update_callback({"message": f"🎯 Prediction {prediction_digit} detected. Starting trade cycle..."})
             state.last_loss_digit = None
             state.loss_digit_seen_again = False
-            continue  # Important: Skip placing trade immediately
-
-        # Delay first trade by one tick after prediction detected
-        if state.first_trade_pending:
-            logger.info("🕓 First trade delay tick passed. Starting tick-by-tick trading.")
-            state.prediction_triggered = True
-            state.first_trade_pending = False
-            continue
 
         if not state.prediction_triggered or state.awaiting_result:
             logger.debug("Skipping tick: Awaiting prediction trigger or result.")
@@ -266,4 +248,3 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
     state.running = False
     logger.info("Bot stopped and status updated.")
     await send_update_callback({"message": "✅ Bot finished."})
-

@@ -53,7 +53,6 @@ class BotState:
         self.prediction_triggered = False   # ✅ Flag to start tick-by-tick trading
         self.last_loss_digit = None  # 🚫 To avoid retrading on the loss-causing digit
         self.loss_digit_seen_again = False  # ✅ Waits for a second appearance after loss
-        self.first_trade_pending = False  # ✅ Delay mechanism after first prediction match
 
         logger.info(f"[BotState:init] Created BotState for user_id={user_id}")
 
@@ -191,4 +190,3 @@ def is_bot_running(user_id: int) -> bool:
     running = state.running if state else False
     logger.debug(f"[is_bot_running] user_id={user_id}, running={running}")
     return running
-
