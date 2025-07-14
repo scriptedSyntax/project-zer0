@@ -151,8 +151,8 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
                 else:
                     logger.warning("Trade lost. Handling loss logic.")
                     state.record_loss(last_digit=last_digit)
-                    state.prediction_triggered = False
-                    state.waiting_for_prediction = True
+                    # state.prediction_triggered = False
+                    # state.waiting_for_prediction = True
                     await send_update_callback({"message": "❌ Loss occurred. Waiting for next prediction match to restart trading."})
                 
                     if state.should_martingale(bot_settings.do_martingale_after):
@@ -196,23 +196,28 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         last_digit = tick["last_digit"]
 
         if state.waiting_for_prediction and last_digit == prediction_digit:
-            if state.last_loss_digit is None:
-                logger.info("No loss digit set — allowing trade.")
-                state.waiting_for_prediction = False
-                state.prediction_triggered = True
-            elif last_digit == state.last_loss_digit:
-                if not state.loss_digit_seen_again:
-                    state.loss_digit_seen_again = True
-                    logger.debug("First reappearance of loss digit. Waiting for second.")
-                else:
-                    logger.info("Second reappearance of loss digit. Restarting trading.")
-                    state.waiting_for_prediction = False
-                    state.prediction_triggered = True
-            else:
-                logger.info("Different prediction digit than loss digit — resetting wait.")
-                state.waiting_for_prediction = False
-                state.prediction_triggered = True
+            # if state.last_loss_digit is None:
+            #     logger.info("No loss digit set — allowing trade.")
+            #     state.waiting_for_prediction = False
+            #     state.prediction_triggered = True
+            # elif last_digit == state.last_loss_digit:
+            #     if not state.loss_digit_seen_again:
+            #         state.loss_digit_seen_again = True
+            #         logger.debug("First reappearance of loss digit. Waiting for second.")
+            #     else:
+            #         logger.info("Second reappearance of loss digit. Restarting trading.")
+            #         state.waiting_for_prediction = False
+            #         state.prediction_triggered = True
+            # else:
+            #     logger.info("Different prediction digit than loss digit — resetting wait.")
+            #     state.waiting_for_prediction = False
+            #     state.prediction_triggered = True
 
+            # logger.info(f"🎯 Prediction {prediction_digit} detected. Starting trade cycle...")
+            # await send_update_callback({"message": f"🎯 Prediction {prediction_digit} detected. Starting trade cycle..."})
+            state.waiting_for_prediction = False
+            state.prediction_triggered = True
+            
             logger.info(f"🎯 Prediction {prediction_digit} detected. Starting trade cycle...")
             await send_update_callback({"message": f"🎯 Prediction {prediction_digit} detected. Starting trade cycle..."})
             state.last_loss_digit = None
