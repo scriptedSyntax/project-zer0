@@ -74,54 +74,54 @@ class TickContext:
         )
 
     
-    # async def handle_closed(self, event):
-    #     cid    = event["contract_id"]
-    #     epoch  = event["sell_time"]
-    #     profit = round(float(event["profit"]), 2)
-    #     loss   = profit < 0
+    async def handle_closed(self, event):
+        cid    = event["contract_id"]
+        epoch  = event["sell_time"]
+        profit = round(float(event["profit"]), 2)
+        loss   = profit < 0
 
-    #     # 1) Martingale pointer update
-    #     if loss:
-    #         self.state.record_loss()
-    #     else:
-    #         self.state.reset_on_win()
+        # 1) Martingale pointer update
+        if loss:
+            self.state.record_loss()
+        else:
+            self.state.reset_on_win()
 
-    #     # 2) Record & notify
-    #     trade = {
-    #         "contract_id": cid,
-    #         "stake":       self.last_stake,
-    #         "profit":      profit,
-    #         "buy_time":    self.last_epoch,
-    #         "sell_time":   epoch,
-    #         "result":      "loss" if loss else "win"
-    #     }
-    #     self.state.add_trade(trade)
-    #     await self.send_update({"type": "bot_update", "data": trade})
+        # 2) Record & notify
+        trade = {
+            "contract_id": cid,
+            "stake":       self.last_stake,
+            "profit":      profit,
+            "buy_time":    self.last_epoch,
+            "sell_time":   epoch,
+            "result":      "loss" if loss else "win"
+        }
+        self.state.add_trade(trade)
+        await self.send_update({"type": "bot_update", "data": trade})
 
-    #     # ✅ 3) Delay before firing next trade (based on user settings)
-    #     delay = max(0, int(self.settings.tick_result_delay or 0))
-    #     if delay > 0:
-    #         logger.info(f"Delaying next trade for {delay} seconds.")
-    #         await asyncio.sleep(delay)
+        # ✅ 3) Delay before firing next trade (based on user settings)
+        delay = max(0, int(self.settings.tick_result_delay or 0))
+        if delay > 0:
+            logger.info(f"Delaying next trade for {delay} seconds.")
+            await asyncio.sleep(delay)
 
-    #     # 4) Fire the next buy
-    #     stake = round(self.state.get_next_pointer_stake(), 2)
-    #     try:
-    #         prop     = await self.trade_manager.propose_contract(
-    #                        self.settings.symbol, stake, self.settings.prediction
-    #                    )
-    #         buy_info = await self.trade_manager.buy_contract(prop["proposal_id"], prop["ask_price"])
-    #     except Exception as e:
-    #         logger.error(f"Buy failed at tick {epoch}: {e}")
-    #         return
+        # 4) Fire the next buy
+        stake = round(self.state.get_next_pointer_stake(), 2)
+        try:
+            prop     = await self.trade_manager.propose_contract(
+                           self.settings.symbol, stake, self.settings.prediction
+                       )
+            buy_info = await self.trade_manager.buy_contract(prop["proposal_id"], prop["ask_price"])
+        except Exception as e:
+            logger.error(f"Buy failed at tick {epoch}: {e}")
+            return
 
-    #     self.last_stake = stake
-    #     self.last_epoch = epoch
+        self.last_stake = stake
+        self.last_epoch = epoch
 
-    #     self.trade_manager.api.subscribe_contract_closed(
-    #         buy_info["contract_id"],
-    #         lambda ev: asyncio.create_task(self.handle_closed(ev))
-    #     )
+        self.trade_manager.api.subscribe_contract_closed(
+            buy_info["contract_id"],
+            lambda ev: asyncio.create_task(self.handle_closed(ev))
+        )
 
 
 async def on_tick(tick, ctx: TickContext):
