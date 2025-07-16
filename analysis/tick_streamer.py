@@ -51,7 +51,26 @@ class LiveTickStreamer:
         print(f"[LiveTickStreamer] Starting live stream for {self.user.username} on {self.symbol}")
 
         try:
-            async for tick in get_live_ticks(deriv_token, self.symbol):
+            # 🆕 Determine decimal places dynamically based on volatility
+            volatility = self.analyzer.extract_volatility(self.symbol)
+
+            if "1s" in self.symbol:
+                dp = 2  # Fixed for 1s market
+            else:
+                if volatility == 10:
+                    dp = 3
+                elif volatility == 25:
+                    dp = 3
+                elif volatility == 50:
+                    dp = 4
+                elif volatility == 75:
+                    dp = 4
+                elif volatility == 100:
+                    dp = 2
+                else:
+                    dp = 2  # default fallback
+
+            async for tick in get_live_ticks(deriv_token, self.symbol, decimal_places_for_last_digit=dp):
                 if not self.running:
                     break
 

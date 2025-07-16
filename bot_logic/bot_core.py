@@ -18,7 +18,6 @@ from bot_logic.markets.matches_differs import MatchesDiffersStrategy
 logger = logging.getLogger(__name__)
 SAFETY_MARGIN = 0.003
 
-
 async def cancel_pending_contracts(trade_manager, pending_trades, send_update_callback):
     if not pending_trades:
         logger.info("No pending trades to cancel.")
@@ -36,6 +35,22 @@ def calculate_profit(stake: float, is_loss: bool) -> float:
     profit = -stake if is_loss else stake
     logger.debug(f"Calculated profit: {profit} (Loss: {is_loss})")
     return profit
+
+def get_decimal_places(symbol):
+    try:
+        vol = int(symbol.split("_")[1])
+    except:
+        return 2  # fallback
+
+    if "1s" in symbol:
+        return 2  # fixed for 1s markets
+    if vol in [10, 25]:
+        return 3
+    elif vol in [50, 75]:
+        return 4
+    elif vol == 100:
+        return 2
+    return 2  # default fallback
 
 
 async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callback, bot_mode=None):
@@ -124,7 +139,9 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
     logger.info(f"Strategy initialized: {market_handler}")
     prediction_digit = int(bot_settings.threshold)
 
-    async for tick in get_live_ticks(user.deriv_token, bot_settings.symbol):
+    # async for tick in get_live_ticks(user.deriv_token, bot_settings.symbol):
+    dp = get_decimal_places(bot_settings.symbol)
+    async for tick in get_live_ticks(user.deriv_token, bot_settings.symbol, decimal_places_for_last_digit=dp):
         logger.info(f"[BOT TICK] Received tick: epoch={tick['epoch']}, quote={tick['quote']}, last_digit={tick['last_digit']}")
         logger.debug(f"Received tick: {tick}")
         if stop_event.is_set() or not state.running:
@@ -136,7 +153,9 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
 
         to_remove = []
         for pcid, info in pending_trades.items():
-            if tick["epoch"] == info["buy_epoch"] + evaluation_tick_delay:
+            # if tick["epoch"] == info["buy_epoch"] + evaluation_tick_delay:
+            info["ticks_seen"] = info.get("ticks_seen", 0) + 1
+            if info["ticks_seen"] >= evaluation_tick_delay:
                 last_digit = tick["last_digit"]
                 prediction = info["prediction"]
                 is_win = market_handler.evaluate_result(last_digit)

@@ -25,6 +25,7 @@ class TickContext:
         self.stop_loss_threshold = stop_loss_threshold
         self.take_profit_threshold = take_profit_threshold
         self.send_update = send_update
+        self.active_contract = None  # new
 
         # for initial trade
         self.first_trade = True
@@ -72,57 +73,12 @@ class TickContext:
             buy_info["contract_id"],
             lambda ev: asyncio.create_task(self.handle_closed(ev))
         )
-
-    
-    async def handle_closed(self, event):
-        cid    = event["contract_id"]
-        epoch  = event["sell_time"]
-        profit = round(float(event["profit"]), 2)
-        loss   = profit < 0
-
-        # 1) Martingale pointer update
-        if loss:
-            self.state.record_loss()
-        else:
-            self.state.reset_on_win()
-
-        # 2) Record & notify
-        trade = {
-            "contract_id": cid,
-            "stake":       self.last_stake,
-            "profit":      profit,
-            "buy_time":    self.last_epoch,
-            "sell_time":   epoch,
-            "result":      "loss" if loss else "win"
+        self.active_contract = {
+            "contract_id": buy_info["contract_id"],
+            "stake": stake,
+            "epoch": epoch,
+            "prediction": self.settings.prediction
         }
-        self.state.add_trade(trade)
-        await self.send_update({"type": "bot_update", "data": trade})
-
-        # ✅ 3) Delay before firing next trade (based on user settings)
-        delay = max(0, int(self.settings.tick_result_delay or 0))
-        if delay > 0:
-            logger.info(f"Delaying next trade for {delay} seconds.")
-            await asyncio.sleep(delay)
-
-        # 4) Fire the next buy
-        stake = round(self.state.get_next_pointer_stake(), 2)
-        try:
-            prop     = await self.trade_manager.propose_contract(
-                           self.settings.symbol, stake, self.settings.prediction
-                       )
-            buy_info = await self.trade_manager.buy_contract(prop["proposal_id"], prop["ask_price"])
-        except Exception as e:
-            logger.error(f"Buy failed at tick {epoch}: {e}")
-            return
-
-        self.last_stake = stake
-        self.last_epoch = epoch
-
-        self.trade_manager.api.subscribe_contract_closed(
-            buy_info["contract_id"],
-            lambda ev: asyncio.create_task(self.handle_closed(ev))
-        )
-
 
 async def on_tick(tick, ctx: TickContext):
     # 1) Bot still active?
@@ -162,14 +118,68 @@ async def on_tick(tick, ctx: TickContext):
             buy_info["contract_id"],
             lambda ev: asyncio.create_task(ctx.handle_closed(ev))
         )
+        ctx.active_contract = {
+            "contract_id": buy_info["contract_id"],
+            "stake": stake,
+            "epoch": tick["epoch"],
+            "prediction": ctx.settings.prediction
+        }
         return True
 
-    # 5) All further logic (if you ever need per‑tick indicators)
-    #    e.g. update_result_based_state, etc.  If you don’t have
-    #    indicator‑based decisions, you can omit this.
-    # update_result_based_state(tick, ctx)
-    # decision = make_decision_based_on_previous_result(ctx)
-    # if decision.should_trade:
-    #     await maybe_place_trade(decision, ctx, tick)
+    # ✅ Evaluate result manually if contract is active
+    if ctx.active_contract:
+        result_digit = tick["quote"] % 10
+        prediction   = ctx.active_contract["prediction"]
+        contract_id  = ctx.active_contract["contract_id"]
+        is_win = False
+
+        if prediction.startswith("DIGIT_DIFF_"):
+            target = int(prediction.split("_")[-1])
+            is_win = result_digit != target
+        elif prediction.startswith("DIGIT_MATCH_"):
+            target = int(prediction.split("_")[-1])
+            is_win = result_digit == target
+
+        trade = {
+            "contract_id": contract_id,
+            "stake": ctx.active_contract["stake"],
+            "profit": round(ctx.active_contract["stake"] if is_win else -ctx.active_contract["stake"], 2),
+            "buy_time": ctx.active_contract["epoch"],
+            "sell_time": tick["epoch"],
+            "result": "win" if is_win else "loss"
+        }
+
+        if is_win:
+            ctx.state.reset_on_win()
+        else:
+            ctx.state.record_loss()
+
+        ctx.state.add_trade(trade)
+        await ctx.send_update({"type": "bot_update", "data": trade})
+
+        # Next trade
+        stake = round(ctx.state.get_next_pointer_stake(), 2)
+        try:
+            prop     = await ctx.trade_manager.propose_contract(
+                           ctx.settings.symbol, stake, ctx.settings.prediction
+                       )
+            buy_info = await ctx.trade_manager.buy_contract(prop["proposal_id"], prop["ask_price"])
+        except Exception as e:
+            logger.error(f"Buy failed after result tick {tick['epoch']}: {e}")
+            ctx.active_contract = None
+            return True
+
+        ctx.last_stake = stake
+        ctx.last_epoch = tick["epoch"]
+        ctx.trade_manager.api.subscribe_contract_closed(
+            buy_info["contract_id"],
+            lambda ev: asyncio.create_task(ctx.handle_closed(ev))
+        )
+        ctx.active_contract = {
+            "contract_id": buy_info["contract_id"],
+            "stake": stake,
+            "epoch": tick["epoch"],
+            "prediction": ctx.settings.prediction
+        }
 
     return True
