@@ -6,6 +6,8 @@ from django.contrib.auth.models import User
 PREDICTION_CHOICES = [
     ('even', 'Even'),
     ('odd', 'Odd'),
+    ('rise', 'Rise'),
+    ('fall', 'Fall'),  # ✅ 
 ]
 
 MARKET_CHOICES = [
@@ -14,6 +16,7 @@ MARKET_CHOICES = [
     ('under', 'Under'),
     ('matches', 'Matches'),
     ('differs', 'Differs'),
+    ('rise_fall', 'Rise/Fall'), 
 ]
 
 SYMBOL_CHOICES = [
@@ -53,6 +56,8 @@ class BotSettings(models.Model):
     market_type = models.CharField(max_length=20, choices=MARKET_CHOICES, default='even_odd')
     threshold = models.IntegerField(null=True, blank=True)  # Only used for over/under markets
     recovery_threshold = models.IntegerField(null=True, blank=True)
+
+    stop_after_losses = models.IntegerField(default=0, help_text="Stop bot after X consecutive losses")
 
     def __str__(self):
         return f"{self.user.username} Bot Settings"

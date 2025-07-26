@@ -389,6 +389,17 @@
                 <div class="mb-3">{{ settings_form.stop_loss.label_tag }}{{ settings_form.stop_loss }}</div>
                 <div class="mb-3">{{ settings_form.do_martingale_after.label_tag }}{{ settings_form.do_martingale_after }}</div>
 
+                <div class="mb-3">
+                    <label for="id_stop_after_losses" class="form-label text-gray-300">
+                        <i class="bi bi-x-circle me-1 text-danger"></i>
+                        Stop After Consecutive Losses:
+                    </label>
+                    <input type="number" name="stop_after_losses" class="form-control bg-gray-800 text-white border-gray-700" id="id_stop_after_losses"
+                        value="{{ settings_form.instance.stop_after_losses|default:0 }}" min="0">
+                    <small class="form-text text-muted">Bot will stop after this number of consecutive losses (set 0 to disable).</small>
+                </div>
+
+
                 <!-- 🔸 MARKET TYPE -->
                 <div class="mb-3">
                     <label for="market-type" class="form-label text-gray-300">
@@ -400,6 +411,7 @@
                         <option value="under" {% if settings_form.instance.market_type == "under" %}selected{% endif %}>Under</option>
                         <option value="matches" {% if settings_form.instance.market_type == "matches" %}selected{% endif %}>Matches</option>
                         <option value="differs" {% if settings_form.instance.market_type == "differs" %}selected{% endif %}>Differs</option>
+                        <option value="rise_fall" {% if settings_form.instance.market_type == "rise_fall" %}selected{% endif %}>Rise/Fall</option>
                     </select>
                 </div>
 
@@ -411,6 +423,8 @@
                     <select id="prediction" name="prediction" class="form-control bg-gray-800 text-white border-gray-700">
                         <option value="even" {% if settings_form.instance.prediction == "even" %}selected{% endif %}>Even</option>
                         <option value="odd" {% if settings_form.instance.prediction == "odd" %}selected{% endif %}>Odd</option>
+                        <option value="rise" {% if settings_form.instance.prediction == "rise" %}selected{% endif %}>Rise</option>
+                        <option value="fall" {% if settings_form.instance.prediction == "fall" %}selected{% endif %}>Fall</option>
                     </select>
                 </div>
 
@@ -612,7 +626,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function togglePredictionFields() {
         const selected = marketTypeSelect?.value;
-        if (selected === "even_odd") {
+        if (selected === "even_odd" || selected === "rise_fall") {
             predictionWrapper.style.display = "block";
             thresholdWrapper.style.display = "none";
             recoveryWrapper.style.display = "none";

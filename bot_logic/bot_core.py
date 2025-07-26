@@ -14,6 +14,7 @@ from bot_logic.balance_manager import get_balance_manager
 from bot_logic.markets.even_odd import EvenOddStrategy
 from bot_logic.markets.over_under import OverUnderStrategy
 from bot_logic.markets.matches_differs import MatchesDiffersStrategy
+from bot_logic.markets.rise_fall import RiseFallStrategy
 
 logger = logging.getLogger(__name__)
 SAFETY_MARGIN = 0.003
@@ -66,6 +67,8 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         msg += f" with threshold: {bot_settings.threshold}"
     elif bot_settings.market_type in ["matches", "differs"]:
         msg += f" targeting digit: {bot_settings.threshold}"
+    elif bot_settings.market_type in ["rise_fall"]:
+        msg += f" targeting digit: {bot_settings.prediction}"
     msg += f" and base stake {bot_settings.stake}"
     await send_update_callback({"message": msg})
 
@@ -76,6 +79,12 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
     stop_threshold = current_balance - bot_settings.stop_loss
     take_threshold = current_balance + bot_settings.take_profit
     logger.info(f"Stop-loss threshold: {stop_threshold}, Take-profit threshold: {take_threshold}")
+
+    state = BotState(user_id=user_id)
+
+    if bot_settings.stop_after_losses > 0 and state.loss_counter >= bot_settings.stop_after_losses:
+        stop_event.set()
+        await send_update_callback({"message": f"🛑 Bot stopped after {state.loss_counter} consecutive losses."})
 
     async def check_balance_limits(balance_data):
         nonlocal stop_event
@@ -97,10 +106,9 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         })
 
     balance_manager.subscribe(check_balance_limits)
-
-    state = BotState(user_id=user_id)
     state.init_martingale(bot_settings)
     state.last_balance = current_balance
+    state.prev_quote = None  # RISE AND FALL USE CASES
     user_bot_states[user_id] = state
 
     logger.info("Bot state initialized and subscribed to balance updates.")
@@ -131,7 +139,12 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
             "target_digit": bot_settings.threshold,
             "recovery_threshold": bot_settings.recovery_threshold,
         }
-        market_handler = MatchesDiffersStrategy(config)
+        market_handler = MatchesDiffersStrategy(config)        
+    elif bot_settings.market_type == "rise_fall":
+        config = {
+            "direction": bot_settings.prediction  # "rise" or "fall"
+        }
+        market_handler = RiseFallStrategy(config)
     else:
         logger.error(f"Unsupported market type: {bot_settings.market_type}")
         raise ValueError(f"Unsupported market type: {bot_settings.market_type}")
@@ -158,7 +171,20 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
             if info["ticks_seen"] >= evaluation_tick_delay:
                 last_digit = tick["last_digit"]
                 prediction = info["prediction"]
-                is_win = market_handler.evaluate_result(last_digit)
+
+                if bot_settings.market_type == "rise_fall":
+                    if state.prev_quote is None:
+                        logger.warning("[Rise/Fall] Skipping evaluation: prev_quote not set yet.")
+                        state.prev_quote = tick["quote"]
+                        continue  # wait for next tick
+                    price_diff = tick["quote"] - state.prev_quote
+                    is_win = market_handler.evaluate_result(price_diff)
+                    logger.info(f"[Rise/Fall Evaluation] price_diff={price_diff}, direction={market_handler.get_prediction_string()}, result={is_win}")
+                    state.prev_quote = tick["quote"]
+                                
+                else:
+                    is_win = market_handler.evaluate_result(last_digit)
+                    
                 is_loss = not is_win
                 logger.info(
                     f"[RESULT CHECK] Contract {pcid}: last_digit={last_digit}, prediction={prediction}, is_win={is_win}"
@@ -172,7 +198,16 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
                     state.record_loss(last_digit=last_digit)
                     # state.prediction_triggered = False
                     # state.waiting_for_prediction = True
-                    await send_update_callback({"message": "❌ Loss occurred. Waiting for next prediction match to restart trading."})
+                    # ✅ Check stop-after-loss threshold dynamically
+                    if bot_settings.stop_after_losses > 0 and state.loss_counter >= bot_settings.stop_after_losses:
+                        logger.warning(f"🛑 Stopping bot after {state.loss_counter} consecutive losses (limit: {bot_settings.stop_after_losses})")
+                        stop_event.set()
+                        await send_update_callback({
+                            "message": f"🛑 Bot stopped after {state.loss_counter} consecutive losses."
+                        })
+                        break
+
+                    await send_update_callback({"message": "❌ Loss occurred."})
                 
                     if state.should_martingale(bot_settings.do_martingale_after):
                         martingale_level = state.loss_counter - bot_settings.do_martingale_after
@@ -213,38 +248,37 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
             pending_trades.pop(pcid, None)
 
         last_digit = tick["last_digit"]
+        if bot_settings.market_type != "rise_fall":
+            if state.waiting_for_prediction and last_digit == prediction_digit:
+                state.waiting_for_prediction = False
+                state.prediction_triggered = True
+                
+                logger.info(f"🎯 Prediction {prediction_digit} detected. Starting trade cycle...")
+                await send_update_callback({"message": f"🎯 Prediction {prediction_digit} detected. Starting trade cycle..."})
+                state.last_loss_digit = None
+                state.loss_digit_seen_again = False
 
-        if state.waiting_for_prediction and last_digit == prediction_digit:
-            # if state.last_loss_digit is None:
-            #     logger.info("No loss digit set — allowing trade.")
-            #     state.waiting_for_prediction = False
-            #     state.prediction_triggered = True
-            # elif last_digit == state.last_loss_digit:
-            #     if not state.loss_digit_seen_again:
-            #         state.loss_digit_seen_again = True
-            #         logger.debug("First reappearance of loss digit. Waiting for second.")
-            #     else:
-            #         logger.info("Second reappearance of loss digit. Restarting trading.")
-            #         state.waiting_for_prediction = False
-            #         state.prediction_triggered = True
-            # else:
-            #     logger.info("Different prediction digit than loss digit — resetting wait.")
-            #     state.waiting_for_prediction = False
-            #     state.prediction_triggered = True
+            if bot_settings.market_type != "rise_fall":
+                # if not state.prediction_triggered or state.awaiting_result:
+                if bot_settings.market_type != "rise_fall":
+                    if not state.prediction_triggered or state.awaiting_result:
+                        continue
+                else:
+                    if state.awaiting_result:
+                        continue
+            else:
+                if state.awaiting_result:
+                    continue
+                logger.debug("Skipping tick: Awaiting prediction trigger or result.")
 
-            # logger.info(f"🎯 Prediction {prediction_digit} detected. Starting trade cycle...")
-            # await send_update_callback({"message": f"🎯 Prediction {prediction_digit} detected. Starting trade cycle..."})
-            state.waiting_for_prediction = False
-            state.prediction_triggered = True
-            
-            logger.info(f"🎯 Prediction {prediction_digit} detected. Starting trade cycle...")
-            await send_update_callback({"message": f"🎯 Prediction {prediction_digit} detected. Starting trade cycle..."})
-            state.last_loss_digit = None
-            state.loss_digit_seen_again = False
-
-        if not state.prediction_triggered or state.awaiting_result:
-            logger.debug("Skipping tick: Awaiting prediction trigger or result.")
-            continue
+        # ✅ STRICT CHECK before trade is placed
+        if bot_settings.stop_after_losses > 0 and state.loss_counter >= bot_settings.stop_after_losses:
+            # logger.warning(f"🛑 Stopping bot before trade due to {state.loss_counter} consecutive losses (limit: {bot_settings.stop_after_losses})")
+            stop_event.set()
+            # await send_update_callback({
+            #     "message": f"🛑 Bot stopped before trade after {state.loss_counter} consecutive losses."
+            # })
+            break  # Exit loop before trade
 
         stake = state.get_next_priority_stake(bot_settings.stake)
         logger.info(f"Placing trade with stake: {stake}")
@@ -265,6 +299,26 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         }
 
         state.awaiting_result = True
+
+        # stake = state.get_next_priority_stake(bot_settings.stake)
+        # logger.info(f"Placing trade with stake: {stake}")
+        # await asyncio.sleep(SAFETY_MARGIN)
+
+        # prediction_str = market_handler.get_prediction_string()
+        # logger.debug(f"Getting proposal with prediction: {prediction_str}")
+        # proposal = await trade_manager.propose_contract(bot_settings.symbol, stake, prediction_str)
+        # buy_info = await trade_manager.buy_contract(proposal["proposal_id"], proposal["ask_price"])
+        # cid = buy_info["contract_id"]
+        # buy_epoch = tick["epoch"]
+        # logger.info(f"Trade executed. Contract ID: {cid}, Buy epoch: {buy_epoch}")
+
+        # pending_trades[cid] = {
+        #     "stake": stake,
+        #     "buy_epoch": buy_epoch,
+        #     "prediction": prediction_str
+        # }
+
+        # state.awaiting_result = True
 
     logger.info("Unsubscribing from balance updates.")
     balance_manager.unsubscribe(check_balance_limits)

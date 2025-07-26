@@ -28,4 +28,6 @@ class BotSettingsForm(forms.ModelForm):
             'market_type': forms.Select(attrs={'class': 'form-control'}),
             'symbol': forms.Select(attrs={'class': 'form-control'}),
             'recovery_threshold': forms.NumberInput(attrs={'class': 'form-control'}),
+            'stop_after_losses': forms.NumberInput(attrs={'class': 'form-control'}),
+
         }
