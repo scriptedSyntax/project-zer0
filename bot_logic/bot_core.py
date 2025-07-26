@@ -150,7 +150,23 @@ async def run_bot_for_user(user_id, stop_event: asyncio.Event, send_update_callb
         raise ValueError(f"Unsupported market type: {bot_settings.market_type}")
 
     logger.info(f"Strategy initialized: {market_handler}")
-    prediction_digit = int(bot_settings.threshold)
+    # prediction_digit = int(bot_settings.threshold)
+    if bot_settings.market_type in ["matches", "differs", "over", "under"]:
+        if bot_settings.threshold is None:
+            logger.error(f"❌ Threshold is missing for market type: {bot_settings.market_type}")
+            await send_update_callback({"message": f"❌ Error: Threshold is required for {bot_settings.market_type} strategy."})
+            stop_event.set()
+            return
+        try:
+            prediction_digit = int(bot_settings.threshold)
+        except (ValueError, TypeError):
+            logger.error(f"❌ Invalid threshold format: {bot_settings.threshold}")
+            await send_update_callback({"message": f"❌ Error: Invalid threshold format: {bot_settings.threshold}"})
+            stop_event.set()
+            return
+    else:
+        prediction_digit = None  # Not needed for rise/fall or even_odd
+
 
     # async for tick in get_live_ticks(user.deriv_token, bot_settings.symbol):
     dp = get_decimal_places(bot_settings.symbol)
